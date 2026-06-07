@@ -814,8 +814,7 @@ async function analyzeWithAI(){
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ prompt: prompt })
     });
-    var data = await resp.json();
-    console.log('DATA:', JSON.stringify(data));
+    var respText = await resp.text(); console.log('RESP:', respText); var data = JSON.parse(respText);    console.log('DATA:', JSON.stringify(data));
     var raw = data.result;
     console.log('RAW:', raw);
     raw = raw.replace(/```json|```/g,'').trim();
