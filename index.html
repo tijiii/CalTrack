@@ -854,6 +854,7 @@ async function analyzeWithAI(){
   } catch(e) {
     document.getElementById('ai-loading').style.display='none';
     document.getElementById('ai-btn').disabled=false;
+    console.log('ERREUR DÉTAIL:', e.name, e.message);
     toast('Erreur IA, réessayez');
     console.error(e);
   }
