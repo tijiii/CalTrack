@@ -810,7 +810,7 @@ async function analyzeWithAI(){
     var resp = await fetch('https://caltrack-ai.tg-gannjometrad.workers.dev/', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ prompt: text })
+      body: JSON.stringify({ prompt: text || 'test' })
     });
     var respText = await resp.text();
     console.log('RESP:', respText);
