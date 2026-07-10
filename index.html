@@ -231,15 +231,26 @@ select option{background:var(--surface2)}
 </div>
 
 <div class="page" id="page-recettes">
-  <div class="page-header"><h2>Recettes</h2><p>Propositions selon ce que tu as et ton budget du jour</p></div>
+  <div class="page-header"><h2>Recettes</h2><p>Propositions selon ton budget du jour, ton temps et (si tu veux) ce que tu as</p></div>
   <div class="card section-gap">
     <div class="form-group">
-      <div class="flex-between"><label>Ingrédients disponibles</label><button type="button" class="btn btn-ghost" id="rec-mic-btn" onclick="toggleVoiceInput('rec-input')" style="font-size:.75rem;padding:.3rem .7rem;min-height:0;display:none">🎤 Dicter</button></div>
-      <textarea id="rec-input" placeholder="Ex: poulet, riz, brocoli, oeufs, yaourt grec…" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;font-family:'DM Sans',sans-serif;resize:none;height:80px;width:100%;outline:none"></textarea>
+      <div class="flex-between"><label>Ingrédients disponibles <small style="color:var(--text3);font-weight:400">(optionnel)</small></label><button type="button" class="btn btn-ghost" id="rec-mic-btn" onclick="toggleVoiceInput('rec-input')" style="font-size:.75rem;padding:.3rem .7rem;min-height:0;display:none">🎤 Dicter</button></div>
+      <textarea id="rec-input" placeholder="Ex: poulet, riz, brocoli, oeufs, yaourt grec… (laisse vide pour des idées libres)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;font-family:'DM Sans',sans-serif;resize:none;height:80px;width:100%;outline:none"></textarea>
     </div>
-    <div class="form-group mt1">
-      <label>Pour quel jour ? (budget restant calculé sur ce jour)</label>
-      <select id="rec-day"><option>Lundi</option><option>Mardi</option><option>Mercredi</option><option>Jeudi</option><option>Vendredi</option><option>Samedi</option><option>Dimanche</option></select>
+    <div class="form-row cols2 mt1">
+      <div class="form-group">
+        <label>Temps de préparation max</label>
+        <select id="rec-time">
+          <option value="15 minutes">⚡ 15 min</option>
+          <option value="30 minutes" selected>30 min</option>
+          <option value="45 minutes">45 min</option>
+          <option value="1 heure ou plus">1h ou +</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Pour quel jour ?</label>
+        <select id="rec-day"><option>Lundi</option><option>Mardi</option><option>Mercredi</option><option>Jeudi</option><option>Vendredi</option><option>Samedi</option><option>Dimanche</option></select>
+      </div>
     </div>
     <button class="btn btn-primary mt2" id="rec-btn" onclick="analyzeRecipes()" style="width:100%">🍳 Proposer des recettes</button>
   </div>
@@ -1082,7 +1093,7 @@ var recSuggestions={avec_stock:[],avec_courses:[]};
 
 async function analyzeRecipes(){
   var ingredients=document.getElementById('rec-input').value.trim();
-  if(!ingredients){toast('Liste tes ingrédients d\'abord');return;}
+  var prepTime=document.getElementById('rec-time').value;
   var day=document.getElementById('rec-day').value;
   var budget=getRemainingBudget(day);
 
@@ -1094,7 +1105,7 @@ async function analyzeRecipes(){
     var resp=await fetch('https://caltrack-ai.tg-gannjometrad.workers.dev/',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'recipes',ingredients:ingredients,budget:budget})
+      body:JSON.stringify({action:'recipes',ingredients:ingredients,prepTime:prepTime,budget:budget})
     });
     var respText=await resp.text();
     var data=JSON.parse(respText);
@@ -1120,7 +1131,7 @@ function recipeCard(r, idx, section){
   var ingList=(r.ingredients||r.ingredients_dispo||[]).join(', ');
   var acheter=r.a_acheter&&r.a_acheter.length?'<div class="mt1" style="font-size:.78rem;color:var(--warn)">🛒 À acheter : '+r.a_acheter.join(', ')+'</div>':'';
   return '<div class="card section-gap">'
-    +'<div class="flex-between"><div style="font-weight:600;font-family:Syne,sans-serif">'+r.nom+'</div><div style="color:var(--accent);font-weight:600">'+Math.round(r.kcal)+' kcal</div></div>'
+    +'<div class="flex-between"><div style="font-weight:600;font-family:Syne,sans-serif">'+r.nom+(r.temps?' <span style="color:var(--text3);font-weight:400;font-size:.78rem">· ⏱ '+r.temps+'</span>':'')+'</div><div style="color:var(--accent);font-weight:600">'+Math.round(r.kcal)+' kcal</div></div>'
     +'<div class="mt1" style="font-size:.82rem;color:var(--text2)">'+ingList+'</div>'
     +acheter
     +(r.instructions?'<div class="mt1" style="font-size:.8rem;color:var(--text3)">'+r.instructions+'</div>':'')
