@@ -1072,15 +1072,22 @@ function toggleVoiceInput(){
   var baseText=textarea.value;
   voiceRecognition=new SpeechRecognitionCtor();
   voiceRecognition.lang='fr-FR';
-  voiceRecognition.interimResults=false;
-  voiceRecognition.continuous=false;
+  voiceRecognition.interimResults=true;
+  voiceRecognition.continuous=true;
+  var gotResult=false;
   voiceRecognition.onstart=function(){isListening=true;btn.textContent='🔴 Écoute…';};
   voiceRecognition.onresult=function(e){
+    gotResult=true;
     var transcript=Array.prototype.map.call(e.results,function(r){return r[0].transcript;}).join(' ');
     textarea.value=(baseText?baseText+' ':'')+transcript;
   };
-  voiceRecognition.onerror=function(){toast('Erreur micro, réessayez');};
-  voiceRecognition.onend=function(){isListening=false;btn.textContent='🎤 Dicter';};
+  voiceRecognition.onerror=function(e){
+    if(e.error!=='no-speech')toast('Micro indisponible sur ce téléphone — utilise le dictaphone du clavier');
+  };
+  voiceRecognition.onend=function(){
+    isListening=false;btn.textContent='🎤 Dicter';
+    if(!gotResult)toast('Aucun son capté — utilise le micro du clavier à la place');
+  };
   voiceRecognition.start();
 }
 function stopVoiceInput(){if(voiceRecognition&&isListening)voiceRecognition.stop();}
