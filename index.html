@@ -294,7 +294,7 @@ select option{background:var(--surface2)}
     <h3>✨ Décrire mon repas</h3>
     <p style="font-size:.82rem;color:var(--text2);margin-bottom:1rem">Décrivez ce que vous avez mangé en langage naturel, l'IA s'occupe du reste.</p>
     <div class="form-group">
-      <label>Votre repas</label>
+      <div class="flex-between"><label>Votre repas</label><button type="button" class="btn btn-ghost" id="ai-mic-btn" onclick="toggleVoiceInput()" style="font-size:.75rem;padding:.3rem .7rem;min-height:0;display:none">🎤 Dicter</button></div>
       <textarea id="ai-input" placeholder="Ex: 100g d'avoine Bjorg avec du chocolat, 2 oeufs brouillés et un muffin blé complet…" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;font-family:'DM Sans',sans-serif;resize:none;height:100px;width:100%;outline:none"></textarea>
     </div>
     <div class="form-group mt1">
@@ -1049,13 +1049,41 @@ function openAIModal(){
   document.body.style.overflow='hidden';
   document.body.style.position='fixed';
   document.body.style.width='100%';
+  var micBtn=document.getElementById('ai-mic-btn');
+  if(SpeechRecognitionCtor)micBtn.style.display='';
 }
 function closeAIModal(){
+  stopVoiceInput();
   document.getElementById('ai-modal').classList.remove('open');
   document.body.style.overflow='';
   document.body.style.position='';
   document.body.style.width='';
 }
+
+// ===================== DICTÉE VOCALE =====================
+var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+var voiceRecognition=null, isListening=false;
+
+function toggleVoiceInput(){
+  if(!SpeechRecognitionCtor)return;
+  if(isListening){voiceRecognition.stop();return;}
+  var textarea=document.getElementById('ai-input');
+  var btn=document.getElementById('ai-mic-btn');
+  var baseText=textarea.value;
+  voiceRecognition=new SpeechRecognitionCtor();
+  voiceRecognition.lang='fr-FR';
+  voiceRecognition.interimResults=false;
+  voiceRecognition.continuous=false;
+  voiceRecognition.onstart=function(){isListening=true;btn.textContent='🔴 Écoute…';};
+  voiceRecognition.onresult=function(e){
+    var transcript=Array.prototype.map.call(e.results,function(r){return r[0].transcript;}).join(' ');
+    textarea.value=(baseText?baseText+' ':'')+transcript;
+  };
+  voiceRecognition.onerror=function(){toast('Erreur micro, réessayez');};
+  voiceRecognition.onend=function(){isListening=false;btn.textContent='🎤 Dicter';};
+  voiceRecognition.start();
+}
+function stopVoiceInput(){if(voiceRecognition&&isListening)voiceRecognition.stop();}
 
 var aiParsedFoods=[];
 
