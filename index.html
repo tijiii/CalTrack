@@ -248,7 +248,6 @@ select option{background:var(--surface2)}
         <div class="form-group"><label>Poids (kg)</label><input type="number" id="p-poids" placeholder="87"></div>
         <div class="form-group"><label>Taille (cm)</label><input type="number" id="p-taille" placeholder="183"></div>
         <div class="form-group"><label>Sexe</label><select id="p-sexe"><option value="H">Homme</option><option value="F">Femme</option></select></div>
-        <div class="form-group"><label>Objectif</label><select id="p-objectif"><option value="-500">Perte (−500)</option><option value="-300">Sèche contrôlée (−300)</option><option value="-250">Perte légère (−250)</option><option value="0" selected>Maintien</option><option value="+250">Prise légère (+250)</option><option value="+300">Prise de masse contrôlée (+300)</option><option value="+500">Prise de masse (+500)</option></select></div>
       </div>
       <div class="form-group mt2"><label>Activité</label>
         <select id="p-activite"><option value="1.2">Sédentaire</option><option value="1.375">Légèrement actif</option><option value="1.55" selected>Modérément actif</option><option value="1.725">Très actif</option><option value="1.9">Extrêmement actif</option></select>
@@ -887,13 +886,13 @@ function filterDB(){renderDB();}
 
 // ===================== STRATÉGIE MACRO =====================
 var STRATEGIES = {
-  maintien: {prot:0.30, gluc:0.40, lip:0.30, fib:25, label:'Maintien'},
-  seche:    {prot:0.40, gluc:0.30, lip:0.30, fib:30, label:'Sèche'},
-  seche_controlee: {prot:0.35, gluc:0.35, lip:0.30, fib:30, label:'Sèche contrôlée'},
-  masse:    {prot:0.25, gluc:0.50, lip:0.25, fib:25, label:'Prise de masse'},
-  masse_controlee: {prot:0.30, gluc:0.40, lip:0.30, fib:25, label:'Prise de masse contrôlée'},
-  lowcarb:  {prot:0.40, gluc:0.20, lip:0.40, fib:35, label:'Low carb'},
-  custom:   {prot:0.30, gluc:0.40, lip:0.30, fib:25, label:'Personnalisé'}
+  maintien: {prot:0.30, gluc:0.40, lip:0.30, fib:25, label:'Maintien', obj:0},
+  seche:    {prot:0.40, gluc:0.30, lip:0.30, fib:30, label:'Sèche', obj:-500},
+  seche_controlee: {prot:0.35, gluc:0.35, lip:0.30, fib:30, label:'Sèche contrôlée', obj:-300},
+  masse:    {prot:0.25, gluc:0.50, lip:0.25, fib:25, label:'Prise de masse', obj:500},
+  masse_controlee: {prot:0.30, gluc:0.40, lip:0.30, fib:25, label:'Prise de masse contrôlée', obj:300},
+  lowcarb:  {prot:0.40, gluc:0.20, lip:0.40, fib:35, label:'Low carb', obj:0},
+  custom:   {prot:0.30, gluc:0.40, lip:0.30, fib:25, label:'Personnalisé', obj:0}
 };
 
 function getMacroGoals() {
@@ -951,7 +950,6 @@ function loadProfilForm() {
   document.getElementById('p-taille').value = p.taille || '';
   document.getElementById('p-sexe').value = p.sexe || 'H';
   document.getElementById('p-activite').value = p.activite || 1.55;
-  document.getElementById('p-objectif').value = p.objectif || 0;
   document.getElementById('p-strategie').value = p.strategie || 'maintien';
   if (p.pctProt) document.getElementById('p-pct-prot').value = p.pctProt;
   if (p.pctGluc) document.getElementById('p-pct-gluc').value = p.pctGluc;
@@ -966,9 +964,6 @@ function toggleCustomMacros() {
 }
 
 function onStrategieChange() {
-  var s = document.getElementById('p-strategie').value;
-  if (s === 'seche_controlee') document.getElementById('p-objectif').value = '-300';
-  else if (s === 'masse_controlee') document.getElementById('p-objectif').value = '+300';
   toggleCustomMacros();
 }
 
@@ -978,12 +973,11 @@ function calculerProfil() {
   var age = parseFloat(document.getElementById('p-age').value);
   var sexe = document.getElementById('p-sexe').value;
   var activite = parseFloat(document.getElementById('p-activite').value);
-  var objStr = document.getElementById('p-objectif').value;
   var strategie = document.getElementById('p-strategie').value;
   if (!poids || !taille || !age) { toast('Remplissez tous les champs'); return; }
   var bmr = sexe === 'H' ? 10*poids+6.25*taille-5*age+5 : 10*poids+6.25*taille-5*age-161;
   var tdee = bmr * activite;
-  var obj = objStr.startsWith('+') ? +objStr.slice(1) : parseInt(objStr);
+  var obj = (STRATEGIES[strategie]||STRATEGIES.maintien).obj;
   var kcalGoal = Math.round(tdee + obj);
   var updates = {
     nom: document.getElementById('p-nom').value,
