@@ -842,6 +842,15 @@ function updateModalCalc(){
   document.getElementById('modal-calc-preview').style.display='block';
 }
 
+function removeFood(id){
+  var day=state.currentDay;
+  if(!state.journal[day])return;
+  state.journal[day]=state.journal[day].filter(function(f){return f.id!==id;});
+  saveState();
+  renderJournal();
+  renderDashboard();
+}
+
 function addFood(){
   if(!selFood){toast('Sélectionnez un aliment');return;}
   var grams=0,displayQty='';
