@@ -1106,6 +1106,7 @@ async function analyzeRecipes(){
   var prepTime=document.getElementById('rec-time').value;
   var day=document.getElementById('rec-day').value;
   var budget=getRemainingBudget(day);
+  var strategieLabel=(STRATEGIES[state.profil.strategie]||STRATEGIES.maintien).label;
 
   document.getElementById('rec-loading').style.display='block';
   document.getElementById('rec-results').innerHTML='';
@@ -1115,7 +1116,7 @@ async function analyzeRecipes(){
     var resp=await fetch('https://caltrack-ai.tg-gannjometrad.workers.dev/',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'recipes',ingredients:ingredients,prepTime:prepTime,budget:budget})
+      body:JSON.stringify({action:'recipes',ingredients:ingredients,prepTime:prepTime,budget:budget,strategie:strategieLabel})
     });
     var respText=await resp.text();
     var data=JSON.parse(respText);
