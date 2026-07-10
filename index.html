@@ -1102,7 +1102,7 @@ async function analyzeWithAI(){
     var resp = await fetch('https://caltrack-ai.tg-gannjometrad.workers.dev/', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ prompt: buildPromptWithMemory(text) })
+      body: JSON.stringify({ prompt: text, memory: getAIMemory() })
     });
     var respText = await resp.text();
     console.log('RESP:', respText);
@@ -1211,18 +1211,6 @@ function learnFromCorrections() {
   });
   saveAIMemory(memory);
   saveState();
-}
-
-// Envoyer la mémoire au Worker pour que l'IA l'utilise
-function buildPromptWithMemory(text) {
-  var memory = getAIMemory();
-  var keys = Object.keys(memory);
-  if (keys.length === 0) return text;
-  var memStr = keys.slice(0, 20).map(function(k) {
-    var m = memory[k];
-    return m.nom + ': kcal=' + m.kcal + ' prot=' + m.prot + ' gluc=' + m.gluc + ' lip=' + m.lip + ' (pour 100g)';
-  }).join('; ');
-  return text + '\n\n[VALEURS CORRIGÉES À UTILISER EN PRIORITÉ: ' + memStr + ']';
 }
 
 function addAIFoods(){
