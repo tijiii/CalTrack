@@ -1,4 +1,4 @@
-var CACHE = 'caltrack-v3';
+var CACHE = 'caltrack-v4';
 var ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', function(e) {
@@ -23,7 +23,21 @@ self.addEventListener('fetch', function(e) {
     return;
   }
   
-  // Cache-first pour les assets locaux
+  // Network-first pour index.html : toujours la dernière version si le réseau répond
+  if (e.request.mode === 'navigate' || url.indexOf('index.html') >= 0) {
+    e.respondWith(
+      fetch(e.request).then(function(resp) {
+        if (resp && resp.status === 200) {
+          var clone = resp.clone();
+          caches.open(CACHE).then(function(c) { c.put(e.request, clone); });
+        }
+        return resp;
+      }).catch(function() { return caches.match(e.request).then(function(c) { return c || caches.match('./index.html'); }); })
+    );
+    return;
+  }
+
+  // Cache-first pour les autres assets locaux
   e.respondWith(
     caches.match(e.request).then(function(cached) {
       if (cached) return cached;

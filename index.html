@@ -655,8 +655,6 @@ function renderDayContent(){
     +'<div id="journal-macro-widget" class="mt2"></div>';
   renderMacroWidget(tot, 'journal-macro-widget');
 }
-  var savBtn = document.getElementById('save-meal-btn');
-  if (savBtn) savBtn.style.display = foods.length > 0 ? '' : 'none';
 
 // MODE GRAMMES / UNITES
 var selFood=null,searchTimer=null,searchAbort=null,qtyMode='g';
