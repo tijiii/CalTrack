@@ -1083,10 +1083,20 @@ function getRemainingBudget(day){
   };
 }
 
+function todayDateKey(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+
 function renderRecettesPage(){
   document.getElementById('rec-day').value=state.currentDay;
   var micBtn=document.getElementById('rec-mic-btn');
   if(SpeechRecognitionCtor)micBtn.style.display='';
+
+  var cache=state.recipesCatalog;
+  if(cache&&cache.dateKey===todayDateKey()&&cache.day===state.currentDay){
+    recSuggestions=cache.suggestions;
+    renderRecipeResults();
+  }else if(!isListening){
+    analyzeRecipes();
+  }
 }
 
 var recSuggestions={avec_stock:[],avec_courses:[]};
@@ -1117,6 +1127,10 @@ async function analyzeRecipes(){
     if(!jsonMatch)throw new Error('Pas de JSON trouvé');
     var parsed=JSON.parse(jsonMatch[0]);
     recSuggestions={avec_stock:parsed.avec_stock||[],avec_courses:parsed.avec_courses||[]};
+    if(!ingredients){
+      state.recipesCatalog={dateKey:todayDateKey(),day:day,suggestions:recSuggestions};
+      saveState();
+    }
     renderRecipeResults();
   }catch(e){
     toast('Erreur IA, réessayez');
