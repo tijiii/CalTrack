@@ -424,6 +424,7 @@ select option{background:var(--surface2)}
 
 <script>
 var DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
+function getTodayName(){var dn=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];return dn[new Date().getDay()];}
 
 // unitG = poids en grammes d'une unité (ex: 1 oeuf = 55g)
 // unitName = nom de l'unité (ex: "oeuf", "tranche", "portion")
@@ -1414,8 +1415,8 @@ document.getElementById('custom-modal').addEventListener('click',function(e){if(
 
 loadState();
 checkWeekRollover();
-var di=new Date().getDay();
-document.getElementById('modal-day').value=DAYS[[6,0,1,2,3,4,5][di]]||'Lundi';
+state.currentDay=getTodayName();
+document.getElementById('modal-day').value=state.currentDay;
 renderDashboard();
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
