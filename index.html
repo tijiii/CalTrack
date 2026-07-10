@@ -168,6 +168,7 @@ select option{background:var(--surface2)}
   <button class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')"><span>📊</span> Tableau de bord</button>
   <button class="nav-item" data-page="journal" onclick="showPage('journal')"><span>📝</span> Journal</button>
   <button class="nav-item" data-page="aliments" onclick="showPage('aliments')"><span>🥦</span> Aliments</button>
+  <button class="nav-item" data-page="recettes" onclick="showPage('recettes')"><span>🍳</span> Recettes</button>
   <button class="nav-item" data-page="historique" onclick="showPage('historique')"><span>📅</span> Historique</button>
   <div class="sidebar-bottom">
     <button class="nav-item" data-page="profil" onclick="showPage('profil')"><span>⚙️</span> Mon Profil</button>
@@ -229,6 +230,26 @@ select option{background:var(--surface2)}
   <div class="db-grid" id="db-grid"></div>
 </div>
 
+<div class="page" id="page-recettes">
+  <div class="page-header"><h2>Recettes</h2><p>Propositions selon ce que tu as et ton budget du jour</p></div>
+  <div class="card section-gap">
+    <div class="form-group">
+      <div class="flex-between"><label>Ingrédients disponibles</label><button type="button" class="btn btn-ghost" id="rec-mic-btn" onclick="toggleVoiceInput('rec-input')" style="font-size:.75rem;padding:.3rem .7rem;min-height:0;display:none">🎤 Dicter</button></div>
+      <textarea id="rec-input" placeholder="Ex: poulet, riz, brocoli, oeufs, yaourt grec…" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;font-family:'DM Sans',sans-serif;resize:none;height:80px;width:100%;outline:none"></textarea>
+    </div>
+    <div class="form-group mt1">
+      <label>Pour quel jour ? (budget restant calculé sur ce jour)</label>
+      <select id="rec-day"><option>Lundi</option><option>Mardi</option><option>Mercredi</option><option>Jeudi</option><option>Vendredi</option><option>Samedi</option><option>Dimanche</option></select>
+    </div>
+    <button class="btn btn-primary mt2" id="rec-btn" onclick="analyzeRecipes()" style="width:100%">🍳 Proposer des recettes</button>
+  </div>
+  <div id="rec-loading" style="display:none;text-align:center;padding:1.5rem;color:var(--text2)">
+    <div style="font-size:1.5rem;animation:spin 1s linear infinite;display:inline-block">⟳</div>
+    <div style="margin-top:.5rem;font-size:.85rem">Recherche de recettes…</div>
+  </div>
+  <div id="rec-results"></div>
+</div>
+
 <div class="page" id="page-historique">
   <div class="page-header flex-between">
     <div><h2>Historique</h2><p>Semaines passées</p></div>
@@ -283,6 +304,7 @@ select option{background:var(--surface2)}
   <button class="bot-nav-item active" data-page="dashboard" onclick="showPage('dashboard')"><span>📊</span><span>Accueil</span></button>
   <button class="bot-nav-item" data-page="journal" onclick="showPage('journal')"><span>📝</span><span>Journal</span></button>
   <button class="bot-nav-item" data-page="aliments" onclick="showPage('aliments')"><span>🥦</span><span>Aliments</span></button>
+  <button class="bot-nav-item" data-page="recettes" onclick="showPage('recettes')"><span>🍳</span><span>Recettes</span></button>
   <button class="bot-nav-item" data-page="historique" onclick="showPage('historique')"><span>📅</span><span>Historique</span></button>
   <button class="bot-nav-item" data-page="profil" onclick="showPage('profil')"><span>⚙️</span><span>Profil</span></button>
 </nav>
@@ -294,7 +316,7 @@ select option{background:var(--surface2)}
     <h3>✨ Décrire mon repas</h3>
     <p style="font-size:.82rem;color:var(--text2);margin-bottom:1rem">Décrivez ce que vous avez mangé en langage naturel, l'IA s'occupe du reste.</p>
     <div class="form-group">
-      <div class="flex-between"><label>Votre repas</label><button type="button" class="btn btn-ghost" id="ai-mic-btn" onclick="toggleVoiceInput()" style="font-size:.75rem;padding:.3rem .7rem;min-height:0;display:none">🎤 Dicter</button></div>
+      <div class="flex-between"><label>Votre repas</label><button type="button" class="btn btn-ghost" id="ai-mic-btn" onclick="toggleVoiceInput('ai-input')" style="font-size:.75rem;padding:.3rem .7rem;min-height:0;display:none">🎤 Dicter</button></div>
       <textarea id="ai-input" placeholder="Ex: 100g d'avoine Bjorg avec du chocolat, 2 oeufs brouillés et un muffin blé complet…" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;font-family:'DM Sans',sans-serif;resize:none;height:100px;width:100%;outline:none"></textarea>
     </div>
     <div class="form-group mt1">
@@ -594,6 +616,7 @@ function showPage(id){
   else if(id==='aliments')renderDB();
   else if(id==='profil')loadProfilForm();
   else if(id==='historique')renderHistorique();
+  else if(id==='recettes')renderRecettesPage();
 }
 
 function getDayData(day){return state.journal[day]||[];}
@@ -1037,6 +1060,107 @@ function archiveCurrentWeek(){var key=getCurrentWeekKey();var hasData=DAYS.some(
 function renderHistorique(){var el=document.getElementById('historique-content');var hist=state.historique||{};var keys=Object.keys(hist).sort().reverse();if(keys.length===0){el.innerHTML='<div class="empty-state" style="margin-top:3rem"><div class="icon">📅</div>Aucun historique<br><small>Les semaines passées apparaîtront ici.</small></div>';return;}el.innerHTML=keys.map(function(key){var week=hist[key];var journal=week.journal||{};var tot=DAYS.reduce(function(acc,d){var foods=journal[d]||[];foods.forEach(function(f){acc.kcal+=f.kcal;acc.prot+=f.prot;acc.gluc+=f.gluc;acc.lip+=f.lip;});return acc;},{kcal:0,prot:0,gluc:0,lip:0});var dwd=DAYS.filter(function(d){return(journal[d]||[]).length>0;}).length;var avg=dwd>0?Math.round(tot.kcal/dwd):0;var goal=state.profil.kcalGoal||2500;var diff=avg-goal;var dcol=diff>200?'var(--danger)':diff>0?'var(--warn)':'var(--fib)';return '<div class="card section-gap"><div class="flex-between" style="margin-bottom:1rem"><div><div style="font-family:Syne,sans-serif;font-weight:600">'+(week.label||key)+'</div><div style="font-size:.75rem;color:var(--text3)">'+dwd+'/7 jours'+(week.auto?' · auto':'')+'</div></div><div style="text-align:right"><div style="font-family:Syne,sans-serif;font-size:1.3rem;font-weight:700;color:var(--accent)">'+avg+' <small>kcal/j</small></div><div style="font-size:.72rem;color:'+dcol+'">'+(diff>0?'+':'')+Math.round(diff)+' kcal</div></div></div><div class="macros-row"><div class="macro-chip"><div class="val" style="color:var(--accent)">'+Math.round(tot.kcal)+'</div><div class="lbl">kcal</div></div><div class="macro-chip"><div class="val" style="color:var(--prot)">'+Math.round(tot.prot)+'g</div><div class="lbl">prot.</div></div><div class="macro-chip"><div class="val" style="color:var(--gluc)">'+Math.round(tot.gluc)+'g</div><div class="lbl">gluc.</div></div><div class="macro-chip"><div class="val" style="color:var(--lip)">'+Math.round(tot.lip)+'g</div><div class="lbl">lip.</div></div></div><div style="margin-top:.75rem;display:flex;justify-content:flex-end"><button class="btn btn-danger" onclick="deleteWeek(\''+key+'\')">Supprimer</button></div></div>';}).join('');}
 function deleteWeek(key){if(!confirm('Supprimer ?'))return;delete state.historique[key];saveState();renderHistorique();}
 
+// ===================== RECETTES =====================
+function getRemainingBudget(day){
+  var goals=getMacroGoals();
+  var tot=getDayTotals(day);
+  return {
+    kcal: Math.max(0, Math.round(goals.kcal - tot.kcal)),
+    prot: Math.max(0, Math.round(goals.prot - tot.prot)),
+    gluc: Math.max(0, Math.round(goals.gluc - tot.gluc)),
+    lip:  Math.max(0, Math.round(goals.lip  - tot.lip))
+  };
+}
+
+function renderRecettesPage(){
+  document.getElementById('rec-day').value=state.currentDay;
+  var micBtn=document.getElementById('rec-mic-btn');
+  if(SpeechRecognitionCtor)micBtn.style.display='';
+}
+
+var recSuggestions={avec_stock:[],avec_courses:[]};
+
+async function analyzeRecipes(){
+  var ingredients=document.getElementById('rec-input').value.trim();
+  if(!ingredients){toast('Liste tes ingrédients d\'abord');return;}
+  var day=document.getElementById('rec-day').value;
+  var budget=getRemainingBudget(day);
+
+  document.getElementById('rec-loading').style.display='block';
+  document.getElementById('rec-results').innerHTML='';
+  document.getElementById('rec-btn').disabled=true;
+
+  try{
+    var resp=await fetch('https://caltrack-ai.tg-gannjometrad.workers.dev/',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'recipes',ingredients:ingredients,budget:budget})
+    });
+    var respText=await resp.text();
+    var data=JSON.parse(respText);
+    if(data.error)throw new Error(data.error);
+    var raw=data.result;
+    if(!raw)throw new Error('Pas de résultat');
+    raw=raw.replace(/```json|```/g,'').trim();
+    var jsonMatch=raw.match(/\{[\s\S]*\}/);
+    if(!jsonMatch)throw new Error('Pas de JSON trouvé');
+    var parsed=JSON.parse(jsonMatch[0]);
+    recSuggestions={avec_stock:parsed.avec_stock||[],avec_courses:parsed.avec_courses||[]};
+    renderRecipeResults();
+  }catch(e){
+    toast('Erreur IA, réessayez');
+    console.error(e);
+  }finally{
+    document.getElementById('rec-loading').style.display='none';
+    document.getElementById('rec-btn').disabled=false;
+  }
+}
+
+function recipeCard(r, idx, section){
+  var ingList=(r.ingredients||r.ingredients_dispo||[]).join(', ');
+  var acheter=r.a_acheter&&r.a_acheter.length?'<div class="mt1" style="font-size:.78rem;color:var(--warn)">🛒 À acheter : '+r.a_acheter.join(', ')+'</div>':'';
+  return '<div class="card section-gap">'
+    +'<div class="flex-between"><div style="font-weight:600;font-family:Syne,sans-serif">'+r.nom+'</div><div style="color:var(--accent);font-weight:600">'+Math.round(r.kcal)+' kcal</div></div>'
+    +'<div class="mt1" style="font-size:.82rem;color:var(--text2)">'+ingList+'</div>'
+    +acheter
+    +(r.instructions?'<div class="mt1" style="font-size:.8rem;color:var(--text3)">'+r.instructions+'</div>':'')
+    +'<div class="macro-dots mt2"><span class="mdot p">P:'+r1(r.prot||0)+'g</span><span class="mdot g">G:'+r1(r.gluc||0)+'g</span><span class="mdot l">L:'+r1(r.lip||0)+'g</span><span class="mdot f">F:'+r1(r.fib||0)+'g</span></div>'
+    +'<button class="btn btn-primary mt2" style="width:100%" onclick="addRecipeToJournal(\''+section+'\','+idx+')">+ Ajouter au journal</button>'
+    +'</div>';
+}
+
+function renderRecipeResults(){
+  var el=document.getElementById('rec-results');
+  var html='';
+  if(recSuggestions.avec_stock.length){
+    html+='<h3 class="mt2" style="font-size:1rem;margin-bottom:.75rem">✅ Avec ce que tu as</h3>';
+    html+=recSuggestions.avec_stock.map(function(r,i){return recipeCard(r,i,'avec_stock');}).join('');
+  }
+  if(recSuggestions.avec_courses.length){
+    html+='<h3 class="mt2" style="font-size:1rem;margin-bottom:.75rem">🛒 Avec quelques courses en plus</h3>';
+    html+=recSuggestions.avec_courses.map(function(r,i){return recipeCard(r,i,'avec_courses');}).join('');
+  }
+  if(!html)html='<div class="empty-state"><div class="icon">🍳</div>Aucune recette trouvée, réessayez</div>';
+  el.innerHTML=html;
+}
+
+function addRecipeToJournal(section, idx){
+  var r=recSuggestions[section][idx];
+  if(!r)return;
+  var day=document.getElementById('rec-day').value;
+  if(!state.journal[day])state.journal[day]=[];
+  state.journal[day].push({
+    id:Date.now()+'',
+    nom:r.nom, grams:0, displayQty:'recette',
+    kcal:r.kcal||0, prot:r.prot||0, gluc:r.gluc||0, fib:r.fib||0, lip:r.lip||0
+  });
+  saveState();
+  toast(r.nom+' ajoutée au journal !','success');
+  state.currentDay=day;
+  renderJournal();
+  renderDashboard();
+}
+
 // ===================== IA REPAS =====================
 function openAIModal(){
   document.getElementById('ai-input').value='';
@@ -1064,11 +1188,11 @@ function closeAIModal(){
 var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 var voiceRecognition=null, isListening=false;
 
-function toggleVoiceInput(){
+function toggleVoiceInput(textareaId){
   if(!SpeechRecognitionCtor)return;
   if(isListening){voiceRecognition.stop();return;}
-  var textarea=document.getElementById('ai-input');
-  var btn=document.getElementById('ai-mic-btn');
+  var textarea=document.getElementById(textareaId);
+  var btn=document.getElementById(textareaId.replace(/-input$/,'-mic-btn'));
   var baseText=textarea.value;
   voiceRecognition=new SpeechRecognitionCtor();
   voiceRecognition.lang='fr-FR';
