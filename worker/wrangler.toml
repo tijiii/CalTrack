@@ -1,0 +1,11 @@
+name = "caltrack-sync"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://tijiii.github.io"
+
+# Base de CalTrack (remplace le stockage du seul navigateur), synchronisée
+# entre tes appareils. Créée automatiquement au premier déploiement.
+[[kv_namespaces]]
+binding = "CALTRACK"

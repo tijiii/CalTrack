@@ -119,6 +119,7 @@ select option{background:var(--surface2)}
 .toast.show{transform:translateY(0);opacity:1}
 .toast.success{border-color:var(--accent)}
 .bot-nav{display:none}
+.sync-status{position:fixed;top:calc(.5rem + env(safe-area-inset-top));right:.75rem;z-index:150;font-size:.62rem;letter-spacing:.04em;color:var(--text3);background:var(--surface);border:1px solid var(--border2);border-radius:99px;padding:.2rem .55rem;pointer-events:none}
 .empty-state{text-align:center;padding:2.5rem;color:var(--text3);font-size:.88rem}
 .empty-state .icon{font-size:2rem;margin-bottom:.5rem}
 .mt1{margin-top:.5rem}.mt2{margin-top:1rem}.mt3{margin-top:1.5rem}
@@ -455,6 +456,7 @@ select option{background:var(--surface2)}
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="sync-status" id="sync-status"></div>
 
 <script>
 var DAYS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
@@ -615,7 +617,7 @@ var state={
 };
 
 function loadState(){try{var s=localStorage.getItem('caltrack');if(s){var p=JSON.parse(s);state=Object.assign({},state,p);if(!state.historique)state.historique={};if(!state.customFoods)state.customFoods=[];}}catch(e){}}
-function saveState(){try{localStorage.setItem('caltrack',JSON.stringify(state));}catch(e){}}
+function saveState(){try{localStorage.setItem('caltrack',JSON.stringify(state));}catch(e){}scheduleSync();}
 
 function showPage(id){
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
@@ -1349,6 +1351,7 @@ function getAIMemory() {
 }
 function saveAIMemory(memory) {
   try { localStorage.setItem('caltrack_ai_memory', JSON.stringify(memory)); } catch(e) {}
+  scheduleSync();
 }
 function learnFromCorrections() {
   var memory = getAIMemory();
@@ -1393,12 +1396,148 @@ function addAIFoods(){
   renderDashboard();
 }
 
+// ===================== SYNCHRO =====================
+// Toute la base (profil, journal, historique, aliments perso, favoris, mémoire IA)
+// est un seul JSON gardé par le serveur Cloudflare (dossier worker/). Cet appareil
+// garde sa copie dans le localStorage et l'envoie à chaque changement.
+var SYNC_URL='https://caltrack-sync.tom-9dd.workers.dev/store';
+var SYNC_POLL_INTERVAL=30000;
+var syncReady=false;    // la base distante est chargée (ou vient d'être créée)
+var syncApplying=false; // on applique la version distante : pas de renvoi
+var syncTimer=null;
+var syncPushing=null;
+
+function getSyncRev(){try{return localStorage.getItem('caltrack_sync_rev');}catch(e){return null;}}
+function setSyncRev(rev){try{localStorage.setItem('caltrack_sync_rev',rev);}catch(e){}}
+// Des changements de cet appareil ne sont pas encore sur le serveur
+function isSyncDirty(){try{return localStorage.getItem('caltrack_sync_dirty')==='1';}catch(e){return false;}}
+function setSyncDirty(v){try{if(v)localStorage.setItem('caltrack_sync_dirty','1');else localStorage.removeItem('caltrack_sync_dirty');}catch(e){}}
+
+function setSyncStatus(st){
+  var el=document.getElementById('sync-status');if(!el)return;
+  var map={ok:['● Synchronisé','var(--fib)'],syncing:['↻ Synchro…','var(--text3)'],error:['⚠ Hors ligne','var(--danger)']};
+  var m=map[st]||map.error;el.textContent=m[0];el.style.color=m[1];
+}
+
+function syncSnapshot(){return {state:state,favorites:getFavorites(),aiMemory:getAIMemory()};}
+
+function anyModalOpen(){return !!document.querySelector('.modal-bg.open');}
+
+// Remplace les données de cet appareil par la version du serveur
+function applyRemote(remote){
+  var d=remote.data||{};
+  var day=state.currentDay;
+  syncApplying=true;
+  try{
+    state=Object.assign({},state,d.state||{});
+    if(!state.historique)state.historique={};
+    if(!state.customFoods)state.customFoods=[];
+    state.currentDay=day;
+    try{localStorage.setItem('caltrack',JSON.stringify(state));}catch(e){}
+    try{localStorage.setItem('caltrack_favorites',JSON.stringify(d.favorites||[]));}catch(e){}
+    try{localStorage.setItem('caltrack_ai_memory',JSON.stringify(d.aiMemory||{}));}catch(e){}
+  }finally{syncApplying=false;}
+  setSyncRev(remote.rev);
+  setSyncDirty(false);
+  rerenderAfterSync();
+}
+
+function rerenderAfterSync(){
+  var page=document.querySelector('.page.active');
+  var id=page?page.id.replace('page-',''):'dashboard';
+  // Recettes relancerait l'IA, et Profil effacerait le formulaire en cours
+  if(id==='dashboard'||id==='journal'||id==='aliments'||id==='historique')showPage(id);
+}
+
+async function fetchRemote(){
+  var res=await fetch(SYNC_URL+'/db',{cache:'no-store'});
+  if(!res.ok)throw new Error('Serveur '+res.status);
+  return res.json();
+}
+
+function scheduleSync(){
+  if(syncApplying)return;
+  setSyncDirty(true);
+  if(!syncReady)return;
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(pushSync,1500);
+}
+
+async function pushSync(){
+  if(!syncReady)return;
+  if(syncPushing)return syncPushing;
+  syncPushing=(async function(){
+    setSyncStatus('syncing');
+    try{
+      var res=await fetch(SYNC_URL+'/db',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseRev:getSyncRev(),data:syncSnapshot()})});
+      var body=await res.json().catch(function(){return {};});
+      if(res.status===409){
+        // Un autre appareil a écrit entre-temps : sa version gagne
+        applyRemote(body);
+        toast('Données mises à jour depuis un autre appareil');
+      }else if(!res.ok){
+        throw new Error(body.error||('Serveur '+res.status));
+      }else{
+        setSyncRev(body.rev);
+        setSyncDirty(false);
+      }
+      setSyncStatus('ok');
+    }catch(e){
+      console.error(e);
+      setSyncStatus('error');
+    }finally{syncPushing=null;}
+  })();
+  return syncPushing;
+}
+
+async function pullSync(){
+  if(anyModalOpen())return;
+  if(!syncReady)return startSync();
+  try{
+    if(isSyncDirty()){await pushSync();return;}
+    var remote=await fetchRemote();
+    if(remote&&remote.rev!==getSyncRev())applyRemote(remote);
+    setSyncStatus('ok');
+  }catch(e){setSyncStatus('error');}
+}
+
+// Lit la base distante et la réconcilie avec la copie de cet appareil
+async function startSync(){
+  setSyncStatus('syncing');
+  try{
+    var remote=await fetchRemote();
+    syncReady=true;
+    if(!remote){
+      // Base distante vide (premier passage) : on y met la copie de cet appareil
+      await pushSync();
+    }else if(isSyncDirty()&&remote.rev===getSyncRev()){
+      // Changements faits hors ligne sur cet appareil, rien de neuf ailleurs
+      await pushSync();
+    }else{
+      if(remote.rev!==getSyncRev()||isSyncDirty())applyRemote(remote);
+      checkWeekRollover();
+      setSyncStatus('ok');
+    }
+  }catch(e){
+    console.error(e);
+    setSyncStatus('error');
+  }
+}
+
+async function initSync(){
+  await startSync();
+  setInterval(function(){if(document.visibilityState==='visible')pullSync();},SYNC_POLL_INTERVAL);
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')pullSync();});
+  window.addEventListener('online',pullSync);
+}
+
 // ===================== REPAS FAVORIS =====================
 function getFavorites() {
   try { return JSON.parse(localStorage.getItem('caltrack_favorites') || '[]'); } catch(e) { return []; }
 }
 function saveFavorites(favs) {
   try { localStorage.setItem('caltrack_favorites', JSON.stringify(favs)); } catch(e) {}
+  scheduleSync();
 }
 
 function saveMealAsFavorite() {
@@ -1605,6 +1744,7 @@ checkWeekRollover();
 state.currentDay=getTodayName();
 document.getElementById('modal-day').value=state.currentDay;
 renderDashboard();
+initSync();
 
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
 </script>
