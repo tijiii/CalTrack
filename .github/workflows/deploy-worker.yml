@@ -1,6 +1,6 @@
 # Déploie le serveur de synchro (dossier worker/) à chaque modification de ce
 # dossier sur main, ou à la main depuis l'onglet Actions.
-# Secrets du dépôt nécessaires : CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID.
+# Secrets du dépôt nécessaires : CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, ANTHROPIC_API_KEY.
 name: Déployer la synchro
 
 on:
@@ -24,3 +24,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
+          secrets: |
+            ANTHROPIC_API_KEY
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
