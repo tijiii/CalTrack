@@ -232,7 +232,13 @@ select option{background:var(--surface2)}
 </div>
 
 <div class="page" id="page-recettes">
-  <div class="page-header"><h2>Recettes</h2><p>Propositions selon ton budget du jour, ton temps et (si tu veux) ce que tu as</p></div>
+  <div class="page-header"><h2>Recettes</h2><p>Idées du jour, plan de la semaine selon tes objectifs, et liste de courses</p></div>
+  <div class="mode-switch section-gap">
+    <button class="mode-btn active" id="rec-tab-btn-idees" onclick="setRecTab('idees')">🍳 Idées</button>
+    <button class="mode-btn" id="rec-tab-btn-plan" onclick="setRecTab('plan')">🗓 Plan</button>
+    <button class="mode-btn" id="rec-tab-btn-courses" onclick="setRecTab('courses')">🛒 Courses</button>
+  </div>
+  <div id="rec-tab-idees">
   <div class="card section-gap">
     <div class="form-group">
       <div class="flex-between"><label>Ingrédients disponibles <small style="color:var(--text3);font-weight:400">(optionnel)</small></label><button type="button" class="btn btn-ghost" id="rec-mic-btn" onclick="toggleVoiceInput('rec-input')" style="font-size:.75rem;padding:.3rem .7rem;min-height:0;display:none">🎤 Dicter</button></div>
@@ -260,6 +266,55 @@ select option{background:var(--surface2)}
     <div style="margin-top:.5rem;font-size:.85rem">Recherche de recettes…</div>
   </div>
   <div id="rec-results"></div>
+  </div>
+
+  <div id="rec-tab-plan" style="display:none">
+  <div class="card section-gap">
+    <div class="form-row cols2">
+      <div class="form-group">
+        <label>Période</label>
+        <select id="plan-periode"><option value="reste">Jusqu'à dimanche</option><option value="semaine">Semaine complète</option></select>
+      </div>
+      <div class="form-group">
+        <label>Temps de préparation max</label>
+        <select id="plan-time">
+          <option value="15 minutes">⚡ 15 min</option>
+          <option value="30 minutes" selected>30 min</option>
+          <option value="45 minutes">45 min</option>
+          <option value="1 heure ou plus">1h ou +</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group mt1">
+      <label>Repas à prévoir</label>
+      <div id="plan-moments" style="display:flex;flex-wrap:wrap;gap:.4rem .9rem;font-size:.88rem"></div>
+    </div>
+    <div class="form-group mt1">
+      <label>Préférences, aliments à éviter <small style="color:var(--text3);font-weight:400">(gardé pour la prochaine fois)</small></label>
+      <textarea id="plan-prefs" placeholder="Ex : pas de poisson, j'adore les plats épicés, déjeuner à emporter au bureau…" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;font-family:'DM Sans',sans-serif;resize:none;height:64px;width:100%;outline:none"></textarea>
+    </div>
+    <div class="form-group mt1">
+      <label>Déjà dans le frigo / placard <small style="color:var(--text3);font-weight:400">(optionnel)</small></label>
+      <textarea id="plan-stock" placeholder="Ex : riz, pâtes, 6 oeufs, huile d'olive…" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;font-family:'DM Sans',sans-serif;resize:none;height:64px;width:100%;outline:none"></textarea>
+    </div>
+    <button class="btn btn-primary mt2" id="plan-btn" onclick="generatePlan()" style="width:100%">🗓 Préparer mon plan</button>
+  </div>
+  <div id="plan-loading" style="display:none;text-align:center;padding:1.5rem;color:var(--text2)">
+    <div style="font-size:1.5rem;animation:spin 1s linear infinite;display:inline-block">⟳</div>
+    <div style="margin-top:.5rem;font-size:.85rem">Préparation du plan et de la liste de courses… (jusqu'à une minute)</div>
+  </div>
+  <div id="plan-results"></div>
+  </div>
+
+  <div id="rec-tab-courses" style="display:none">
+  <div class="card section-gap">
+    <div style="display:flex;gap:8px">
+      <input type="text" id="course-input" placeholder="Ajouter un article…" onkeydown="if(event.key==='Enter')addCourseManual()">
+      <button class="btn btn-primary" onclick="addCourseManual()">+</button>
+    </div>
+  </div>
+  <div id="courses-list"></div>
+  </div>
 </div>
 
 <div class="page" id="page-historique">
@@ -1088,6 +1143,10 @@ function getRemainingBudget(day){
 function todayDateKey(){var d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
 
 function renderRecettesPage(){
+  setRecTab(recTab);
+}
+
+function renderIdeesTab(){
   document.getElementById('rec-day').value=state.currentDay;
   var micBtn=document.getElementById('rec-mic-btn');
   if(SpeechRecognitionCtor)micBtn.style.display='';
@@ -1151,6 +1210,7 @@ function recipeCard(r, idx, section){
     +'<div class="flex-between"><div style="font-weight:600;font-family:Syne,sans-serif">'+r.nom+(r.temps?' <span style="color:var(--text3);font-weight:400;font-size:.78rem">· ⏱ '+r.temps+'</span>':'')+'</div><div style="color:var(--accent);font-weight:600">'+Math.round(r.kcal)+' kcal</div></div>'
     +'<div class="mt1" style="font-size:.82rem;color:var(--text2)">'+ingList+'</div>'
     +acheter
+    +(r.a_acheter&&r.a_acheter.length?'<button class="btn btn-ghost mt1" style="width:100%;font-size:.85rem;min-height:36px" onclick="addRecipeToCourses(\''+section+'\','+idx+')">🛒 Ajouter à la liste de courses</button>':'')
     +(r.instructions?'<div class="mt1" style="font-size:.8rem;color:var(--text3)">'+r.instructions+'</div>':'')
     +'<div class="macro-dots mt2"><span class="mdot p">P:'+r1(r.prot||0)+'g</span><span class="mdot g">G:'+r1(r.gluc||0)+'g</span><span class="mdot l">L:'+r1(r.lip||0)+'g</span><span class="mdot f">F:'+r1(r.fib||0)+'g</span></div>'
     +'<button class="btn btn-primary mt2" style="width:100%" onclick="addRecipeToJournal(\''+section+'\','+idx+')">+ Ajouter au journal</button>'
@@ -1187,6 +1247,225 @@ function addRecipeToJournal(section, idx){
   state.currentDay=day;
   renderJournal();
   renderDashboard();
+}
+
+// ===================== PLAN DE REPAS & COURSES =====================
+// Le plan et la liste de courses sont rangés dans state (donc synchronisés).
+var recTab='idees';
+var PLAN_MOMENTS=['Petit-déjeuner','Déjeuner','Collation','Dîner'];
+var COURSE_RAYONS=['Fruits & légumes','Viandes & poissons','Crèmerie & oeufs','Féculents & céréales','Épicerie','Surgelés','Boissons','Autre'];
+
+function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+function setRecTab(tab){
+  recTab=tab;
+  ['idees','plan','courses'].forEach(function(t){
+    document.getElementById('rec-tab-'+t).style.display=t===tab?'':'none';
+    document.getElementById('rec-tab-btn-'+t).classList.toggle('active',t===tab);
+  });
+  if(tab==='idees')renderIdeesTab();
+  else if(tab==='plan')renderPlanTab();
+  else renderCourses();
+}
+
+// Objectifs de chaque jour du plan (aujourd'hui : ce qu'il reste si on a déjà mangé)
+function planDays(periode){
+  var goals=getMacroGoals();
+  var today=getTodayName();
+  var list=periode==='semaine'?DAYS:DAYS.slice(DAYS.indexOf(today));
+  return list.map(function(d){
+    var started=periode!=='semaine'&&d===today&&getDayData(d).length>0;
+    var b=started?getRemainingBudget(d):goals;
+    return {jour:d,commence:started,kcal:b.kcal,prot:b.prot,gluc:b.gluc,lip:b.lip};
+  });
+}
+
+function renderPlanTab(){
+  var chosen=state.planMoments||PLAN_MOMENTS;
+  document.getElementById('plan-moments').innerHTML=PLAN_MOMENTS.map(function(m){
+    return '<label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" value="'+m+'" style="width:auto"'+(chosen.indexOf(m)>=0?' checked':'')+'> '+m+'</label>';
+  }).join('');
+  document.getElementById('plan-prefs').value=state.profil.planPrefs||'';
+  renderPlanResults();
+}
+
+async function generatePlan(){
+  var moments=Array.prototype.map.call(document.querySelectorAll('#plan-moments input:checked'),function(i){return i.value;});
+  if(!moments.length){toast('Choisis au moins un repas');return;}
+  var prefs=document.getElementById('plan-prefs').value.trim();
+  state.planMoments=moments;
+  state.profil.planPrefs=prefs;
+  saveState();
+  var jours=planDays(document.getElementById('plan-periode').value);
+
+  document.getElementById('plan-loading').style.display='block';
+  document.getElementById('plan-results').innerHTML='';
+  document.getElementById('plan-btn').disabled=true;
+  try{
+    var resp=await fetch(SYNC_URL.replace(/\/store$/,'/plan'),{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        jours:jours,moments:moments,preferences:prefs,
+        stock:document.getElementById('plan-stock').value.trim(),
+        tempsMax:document.getElementById('plan-time').value,
+        strategie:(STRATEGIES[state.profil.strategie]||STRATEGIES.maintien).label
+      })
+    });
+    var data=await resp.json().catch(function(){return {};});
+    if(!resp.ok||data.error)throw new Error(data.error||('Serveur '+resp.status));
+    var objectifs={};jours.forEach(function(j){objectifs[j.jour]=j;});
+    state.mealPlan={createdAt:new Date().toISOString(),jours:data.jours||[],remarque:data.remarque||'',objectifs:objectifs};
+    setCoursesFromPlan(data.courses||[]);
+    saveState();
+    renderPlanResults();
+    toast('Plan prêt, liste de courses mise à jour','success');
+  }catch(e){
+    console.error(e);
+    toast(e.message&&e.message.indexOf('Serveur')!==0?e.message:'Erreur IA, réessayez');
+  }finally{
+    document.getElementById('plan-loading').style.display='none';
+    document.getElementById('plan-btn').disabled=false;
+  }
+}
+
+function planMealTotals(repas){
+  return repas.reduce(function(a,m){return{kcal:a.kcal+(m.kcal||0),prot:a.prot+(m.prot||0),gluc:a.gluc+(m.gluc||0),lip:a.lip+(m.lip||0)};},{kcal:0,prot:0,gluc:0,lip:0});
+}
+
+function renderPlanResults(){
+  var el=document.getElementById('plan-results');
+  var plan=state.mealPlan;
+  if(!plan||!plan.jours||!plan.jours.length){el.innerHTML='<div class="empty-state"><div class="icon">🗓</div>Pas encore de plan<br><small>Choisis tes repas et lance la préparation.</small></div>';return;}
+  var html='<div style="font-size:.75rem;color:var(--text3);margin-bottom:.75rem">Plan du '+new Date(plan.createdAt).toLocaleDateString('fr-FR',{day:'numeric',month:'long'})+'</div>';
+  if(plan.remarque)html+='<div class="card section-gap" style="font-size:.82rem;color:var(--warn)">'+esc(plan.remarque)+'</div>';
+  html+=plan.jours.map(function(j,di){
+    var tot=planMealTotals(j.repas||[]);
+    var obj=(plan.objectifs||{})[j.jour];
+    var objTxt=obj?' / '+Math.round(obj.kcal)+(obj.commence?' restantes':''):'';
+    return '<div class="card section-gap">'
+      +'<div class="flex-between" style="margin-bottom:.5rem"><div style="font-family:Syne,sans-serif;font-weight:600">'+esc(j.jour)+'</div><div style="font-size:.8rem;color:var(--text2)"><span style="color:var(--accent);font-weight:600">'+Math.round(tot.kcal)+'</span>'+objTxt+' kcal · P '+Math.round(tot.prot)+'g</div></div>'
+      +(j.repas||[]).map(function(m,mi){
+        var added=m.ajoute;
+        return '<div style="border-top:1px solid var(--border);padding:.65rem 0">'
+          +'<div class="flex-between"><div><div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">'+esc(m.moment)+(m.temps?' · ⏱ '+esc(m.temps):'')+'</div><div style="font-weight:500">'+esc(m.nom)+'</div></div><div style="color:var(--accent);font-weight:600;white-space:nowrap">'+Math.round(m.kcal||0)+' kcal</div></div>'
+          +'<div class="mt1" style="font-size:.8rem;color:var(--text2)">'+(m.ingredients||[]).map(function(i){return esc(i.quantite)+' '+esc(i.nom);}).join(', ')+'</div>'
+          +(m.instructions?'<div class="mt1" style="font-size:.78rem;color:var(--text3)">'+esc(m.instructions)+'</div>':'')
+          +'<div class="flex-between mt1"><div class="macro-dots"><span class="mdot p">P:'+r1(m.prot||0)+'g</span><span class="mdot g">G:'+r1(m.gluc||0)+'g</span><span class="mdot l">L:'+r1(m.lip||0)+'g</span></div>'
+          +'<button class="btn '+(added?'btn-ghost':'btn-primary')+'" style="font-size:.8rem;min-height:32px;padding:.3rem .8rem" onclick="addPlanMealToJournal('+di+','+mi+')"'+(added?' disabled':'')+'>'+(added?'✓ Ajouté':'+ Journal')+'</button></div>'
+          +'</div>';
+      }).join('')
+      +'</div>';
+  }).join('');
+  el.innerHTML=html;
+}
+
+function addPlanMealToJournal(di,mi){
+  var j=state.mealPlan&&state.mealPlan.jours[di];
+  var m=j&&j.repas[mi];
+  if(!m)return;
+  var day=DAYS.indexOf(j.jour)>=0?j.jour:state.currentDay;
+  if(!state.journal[day])state.journal[day]=[];
+  state.journal[day].push({id:Date.now()+'',nom:m.nom,grams:0,displayQty:'recette',kcal:m.kcal||0,prot:m.prot||0,gluc:m.gluc||0,fib:m.fib||0,lip:m.lip||0});
+  m.ajoute=true;
+  saveState();
+  toast(m.nom+' ajouté à '+day,'success');
+  renderPlanResults();
+}
+
+// ---- Liste de courses ----
+function getCourses(){if(!state.shoppingList)state.shoppingList=[];return state.shoppingList;}
+function courseId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+
+// Remplace les articles du plan précédent, garde ceux ajoutés à la main
+function setCoursesFromPlan(courses){
+  var keep=getCourses().filter(function(c){return c.source!=='plan';});
+  state.shoppingList=keep.concat(courses.map(function(c){
+    return {id:courseId(),nom:c.nom,quantite:c.quantite||'',rayon:COURSE_RAYONS.indexOf(c.rayon)>=0?c.rayon:'Autre',coche:false,source:'plan'};
+  }));
+}
+
+function addCourseManual(){
+  var input=document.getElementById('course-input');
+  var nom=input.value.trim();
+  if(!nom)return;
+  getCourses().push({id:courseId(),nom:nom,quantite:'',rayon:'Autre',coche:false,source:'main'});
+  input.value='';
+  saveState();
+  renderCourses();
+}
+
+function addRecipeToCourses(section,idx){
+  var r=recSuggestions[section][idx];
+  if(!r||!r.a_acheter)return;
+  var list=getCourses();
+  var have=list.map(function(c){return c.nom.toLowerCase();});
+  var n=0;
+  r.a_acheter.forEach(function(nom){if(have.indexOf(String(nom).toLowerCase())<0){list.push({id:courseId(),nom:String(nom),quantite:'',rayon:'Autre',coche:false,source:'recette'});n++;}});
+  saveState();
+  toast(n?n+' article(s) ajouté(s) à la liste':'Déjà dans la liste','success');
+}
+
+function toggleCourse(id){
+  getCourses().forEach(function(c){if(c.id===id)c.coche=!c.coche;});
+  saveState();
+  renderCourses();
+}
+
+function clearCheckedCourses(){
+  state.shoppingList=getCourses().filter(function(c){return !c.coche;});
+  saveState();
+  renderCourses();
+}
+
+function clearAllCourses(){
+  if(!confirm('Vider toute la liste ?'))return;
+  state.shoppingList=[];
+  saveState();
+  renderCourses();
+}
+
+function coursesAsText(){
+  var list=getCourses().filter(function(c){return !c.coche;});
+  return COURSE_RAYONS.map(function(rayon){
+    var items=list.filter(function(c){return c.rayon===rayon;});
+    if(!items.length)return '';
+    return rayon+'\n'+items.map(function(c){return '- '+c.nom+(c.quantite?' ('+c.quantite+')':'');}).join('\n');
+  }).filter(Boolean).join('\n\n');
+}
+
+async function shareCourses(){
+  var text=coursesAsText();
+  if(!text){toast('Rien à partager');return;}
+  try{
+    if(navigator.share){await navigator.share({title:'Liste de courses',text:text});return;}
+    await navigator.clipboard.writeText(text);
+    toast('Liste copiée','success');
+  }catch(e){if(e&&e.name!=='AbortError')toast('Impossible de partager');}
+}
+
+function renderCourses(){
+  var el=document.getElementById('courses-list');
+  if(!el)return;
+  var list=getCourses();
+  if(!list.length){el.innerHTML='<div class="empty-state"><div class="icon">🛒</div>Liste vide<br><small>Prépare un plan ou ajoute des articles.</small></div>';return;}
+  var left=list.filter(function(c){return !c.coche;}).length;
+  var html='<div class="flex-between section-gap" style="gap:8px;flex-wrap:wrap"><div style="font-size:.85rem;color:var(--text2)">'+left+' article(s) à acheter</div><div style="display:flex;gap:6px">'
+    +'<button class="btn btn-ghost" style="font-size:.8rem;min-height:34px;padding:.3rem .7rem" onclick="shareCourses()">📤 Partager</button>'
+    +'<button class="btn btn-ghost" style="font-size:.8rem;min-height:34px;padding:.3rem .7rem" onclick="clearCheckedCourses()">Retirer cochés</button>'
+    +'<button class="btn btn-danger" style="font-size:.8rem;min-height:34px;padding:.3rem .7rem" onclick="clearAllCourses()">Vider</button></div></div>';
+  html+=COURSE_RAYONS.map(function(rayon){
+    var items=list.filter(function(c){return c.rayon===rayon;});
+    if(!items.length)return '';
+    return '<div class="card section-gap"><div class="card-title">'+rayon+'</div>'+items.map(function(c){
+      return '<label style="display:flex;align-items:center;gap:.6rem;padding:.45rem 0;cursor:pointer;border-top:1px solid var(--border)">'
+        +'<input type="checkbox" style="width:auto"'+(c.coche?' checked':'')+' onchange="toggleCourse(\''+c.id+'\')">'
+        +'<span style="flex:1'+(c.coche?';text-decoration:line-through;color:var(--text3)':'')+'">'+esc(c.nom)+'</span>'
+        +(c.quantite?'<span style="font-size:.8rem;color:var(--text3)">'+esc(c.quantite)+'</span>':'')
+        +'</label>';
+    }).join('')+'</div>';
+  }).join('');
+  el.innerHTML=html;
 }
 
 // ===================== IA REPAS =====================
@@ -1447,6 +1726,7 @@ function rerenderAfterSync(){
   var id=page?page.id.replace('page-',''):'dashboard';
   // Recettes relancerait l'IA, et Profil effacerait le formulaire en cours
   if(id==='dashboard'||id==='journal'||id==='aliments'||id==='historique')showPage(id);
+  else if(id==='recettes'&&recTab==='courses')renderCourses();
 }
 
 async function fetchRemote(){

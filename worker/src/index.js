@@ -6,8 +6,11 @@
 //   GET /store/db → { rev, data, updatedAt } (ou null si la base est vide)
 //   PUT /store/db   corps { baseRev, data } → { ok, rev }
 //                   409 { error, rev, data } si un autre appareil a écrit entre-temps
+//   POST /plan    → plan de repas et liste de courses (voir plan.js)
 //
 // Le site passe par son origine (ALLOWED_ORIGINS).
+
+import { handlePlan } from './plan.js';
 
 const DB_KEY = 'db';
 const BACKUP_DAYS = 30;
@@ -18,7 +21,7 @@ function corsHeaders(origin, env) {
   const ok = allowed.includes(origin) || allowed.includes('*');
   return {
     'Access-Control-Allow-Origin': ok ? origin : allowed[0],
-    'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Vary': 'Origin',
     ok,
@@ -80,6 +83,11 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/store' || url.pathname.startsWith('/store/')) return handleStore(request, env, url);
+    if (url.pathname === '/plan') {
+      const cors = corsHeaders(request.headers.get('Origin') || '', env);
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: (({ ok, ...h }) => h)(cors) });
+      return handlePlan(request, env, cors, reply);
+    }
     return new Response('Introuvable', { status: 404 });
   },
 };
