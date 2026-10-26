@@ -95,11 +95,6 @@ select option{background:var(--surface2)}
 .bar{width:100%;border-radius:var(--r);min-height:2px}
 .bar-lbl{font-size:.62rem;color:var(--text3)}
 .bar-val{font-size:.65rem;color:var(--text2)}
-.db-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
-.food-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:.85rem}
-.food-card .name{font-weight:500;font-size:.85rem;margin-bottom:6px}
-.food-card .kcal{color:var(--accent);font-family:var(--font-display);font-size:1.1rem;font-weight:700}
-.food-card .kcal-lbl{color:var(--text3);font-size:.7rem}
 .macro-dots{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
 .mdot{font-size:.68rem;padding:2px 6px;border-radius:var(--pill);font-weight:500}
 .mdot.p{background:var(--prot-soft);color:var(--prot)}
@@ -140,7 +135,6 @@ select option{background:var(--surface2)}
   .stats-grid{grid-template-columns:repeat(2,1fr);gap:8px}
   .macros-row{grid-template-columns:repeat(2,1fr)}
   .profil-grid{grid-template-columns:1fr}
-  .db-grid{grid-template-columns:repeat(2,1fr);gap:8px}
   .page-header h2{font-size:1.3rem}
   .page-header{margin-bottom:1rem}
   /* header bouton ajouter */
@@ -165,6 +159,7 @@ select option{background:var(--surface2)}
   .toast{bottom:80px;right:.75rem;left:.75rem;text-align:center}
   .stat-val{font-size:1.4rem}
   .card{padding:1rem}
+  .mode-btn{font-size:.78rem;padding:.45rem .25rem}
 }
 </style>
 </head>
@@ -174,7 +169,6 @@ select option{background:var(--surface2)}
   <div class="logo">cal<span>track</span></div>
   <button class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')"><span>📊</span> Tableau de bord</button>
   <button class="nav-item" data-page="journal" onclick="showPage('journal')"><span>📝</span> Journal</button>
-  <button class="nav-item" data-page="aliments" onclick="showPage('aliments')"><span>🥦</span> Aliments</button>
   <button class="nav-item" data-page="recettes" onclick="showPage('recettes')"><span>🍳</span> Recettes</button>
   <button class="nav-item" data-page="historique" onclick="showPage('historique')"><span>📅</span> Historique</button>
   <div class="sidebar-bottom">
@@ -229,19 +223,12 @@ select option{background:var(--surface2)}
   </div>
 </div>
 
-<div class="page" id="page-aliments">
-  <div class="page-header"><h2>Aliments</h2><p id="db-count"></p></div>
-  <div class="card section-gap" style="padding:.75rem 1rem">
-    <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="db-search" placeholder="Rechercher…" oninput="filterDB()"></div>
-  </div>
-  <div class="db-grid" id="db-grid"></div>
-</div>
-
 <div class="page" id="page-recettes">
-  <div class="page-header"><h2>Recettes</h2><p>Idées du jour, plan de la semaine selon tes objectifs, et liste de courses</p></div>
+  <div class="page-header"><h2>Recettes</h2><p>Idées du jour, plan de la semaine, tes recettes sauvegardées et la liste de courses</p></div>
   <div class="mode-switch section-gap">
     <button class="mode-btn active" id="rec-tab-btn-idees" onclick="setRecTab('idees')">🍳 Idées</button>
     <button class="mode-btn" id="rec-tab-btn-plan" onclick="setRecTab('plan')">🗓 Plan</button>
+    <button class="mode-btn" id="rec-tab-btn-mes" onclick="setRecTab('mes')">⭐ Mes recettes</button>
     <button class="mode-btn" id="rec-tab-btn-courses" onclick="setRecTab('courses')">🛒 Courses</button>
   </div>
   <div id="rec-tab-idees">
@@ -310,6 +297,16 @@ select option{background:var(--surface2)}
     <div style="margin-top:.5rem;font-size:.85rem">Préparation du plan et de la liste de courses… (jusqu'à une minute)</div>
   </div>
   <div id="plan-results"></div>
+  </div>
+
+  <div id="rec-tab-mes" style="display:none">
+  <div class="card section-gap" style="padding:.75rem 1rem">
+    <div class="flex-between" style="gap:10px">
+      <label for="saved-day" style="font-size:.85rem;color:var(--text2)">Ajouter au journal de</label>
+      <select id="saved-day" style="max-width:160px"><option>Lundi</option><option>Mardi</option><option>Mercredi</option><option>Jeudi</option><option>Vendredi</option><option>Samedi</option><option>Dimanche</option></select>
+    </div>
+  </div>
+  <div id="saved-list"></div>
   </div>
 
   <div id="rec-tab-courses" style="display:none">
@@ -386,7 +383,6 @@ select option{background:var(--surface2)}
 <nav class="bot-nav">
   <button class="bot-nav-item active" data-page="dashboard" onclick="showPage('dashboard')"><span>📊</span><span>Accueil</span></button>
   <button class="bot-nav-item" data-page="journal" onclick="showPage('journal')"><span>📝</span><span>Journal</span></button>
-  <button class="bot-nav-item" data-page="aliments" onclick="showPage('aliments')"><span>🥦</span><span>Aliments</span></button>
   <button class="bot-nav-item" data-page="recettes" onclick="showPage('recettes')"><span>🍳</span><span>Recettes</span></button>
   <button class="bot-nav-item" data-page="historique" onclick="showPage('historique')"><span>📅</span><span>Historique</span></button>
   <button class="bot-nav-item" data-page="profil" onclick="showPage('profil')"><span>⚙️</span><span>Profil</span></button>
@@ -697,7 +693,6 @@ function showPage(id){
   document.querySelectorAll('[data-page]').forEach(function(n){if(n.getAttribute('data-page')===id)n.classList.add('active');});
   if(id==='dashboard')renderDashboard();
   else if(id==='journal')renderJournal();
-  else if(id==='aliments')renderDB();
   else if(id==='profil')loadProfilForm();
   else if(id==='historique')renderHistorique();
   else if(id==='recettes')renderRecettesPage();
@@ -983,13 +978,6 @@ function addFood(){
   renderDashboard();
 }
 
-function renderDB(){
-  var all=getAllFoods();var q=(document.getElementById('db-search').value||'').toLowerCase();
-  var filtered=q?all.filter(function(f){return f.nom.toLowerCase().indexOf(q)>=0||f.cat.toLowerCase().indexOf(q)>=0;}):all;
-  document.getElementById('db-count').textContent=filtered.length+' aliments';
-  document.getElementById('db-grid').innerHTML=filtered.map(function(f){return '<div class="food-card"><div class="name">'+f.nom+'</div><div><span class="kcal">'+f.kcal+'</span> <span class="kcal-lbl">kcal/100g</span></div>'+(f.unitG?'<div style="font-size:.7rem;color:var(--text3);margin-top:3px">1 '+f.unitName+' = '+f.unitG+'g</div>':'')+'<div class="macro-dots"><span class="mdot p">P:'+f.prot+'g</span><span class="mdot g">G:'+f.gluc+'g</span><span class="mdot l">L:'+f.lip+'g</span><span class="mdot f">F:'+f.fib+'g</span></div></div>';}).join('');
-}
-function filterDB(){renderDB();}
 
 // ===================== STRATÉGIE MACRO =====================
 var STRATEGIES = {
@@ -1213,7 +1201,7 @@ function renderProfilResults() {
 
 function openCustomModal(){document.getElementById('custom-modal').classList.add('open');}
 function closeCustomModal(){document.getElementById('custom-modal').classList.remove('open');}
-function saveCustomFood(){var nom=document.getElementById('ca-nom').value.trim();if(!nom){toast('Entrez un nom');return;}var unitG=parseFloat(document.getElementById('ca-unit-g').value)||null;var unitName=document.getElementById('ca-unit-name').value.trim()||null;state.customFoods.push({nom:nom,cat:'Perso',kcal:parseFloat(document.getElementById('ca-kcal').value)||0,prot:parseFloat(document.getElementById('ca-prot').value)||0,gluc:parseFloat(document.getElementById('ca-gluc').value)||0,fib:parseFloat(document.getElementById('ca-fib').value)||0,lip:parseFloat(document.getElementById('ca-lip').value)||0,unitG:unitG,unitName:unitName});saveState();closeCustomModal();toast(nom+' ajouté !','success');if(document.getElementById('page-aliments').classList.contains('active'))renderDB();}
+function saveCustomFood(){var nom=document.getElementById('ca-nom').value.trim();if(!nom){toast('Entrez un nom');return;}var unitG=parseFloat(document.getElementById('ca-unit-g').value)||null;var unitName=document.getElementById('ca-unit-name').value.trim()||null;state.customFoods.push({nom:nom,cat:'Perso',kcal:parseFloat(document.getElementById('ca-kcal').value)||0,prot:parseFloat(document.getElementById('ca-prot').value)||0,gluc:parseFloat(document.getElementById('ca-gluc').value)||0,fib:parseFloat(document.getElementById('ca-fib').value)||0,lip:parseFloat(document.getElementById('ca-lip').value)||0,unitG:unitG,unitName:unitName});saveState();closeCustomModal();toast(nom+' ajouté !','success');}
 
 function getWeekKey(date){var d=new Date(date);d.setHours(0,0,0,0);d.setDate(d.getDate()+3-((d.getDay()+6)%7));var w1=new Date(d.getFullYear(),0,4);var wn=1+Math.round(((d-w1)/86400000-3+(w1.getDay()+6)%7)/7);return d.getFullYear()+'-W'+(wn<10?'0':'')+wn;}
 function getCurrentWeekKey(){return getWeekKey(new Date());}
@@ -1320,6 +1308,7 @@ function recipeCard(r, idx, section){
     +(r.instructions?'<div class="mt1" style="font-size:.8rem;color:var(--text3)">'+r.instructions+'</div>':'')
     +'<div class="macro-dots mt2"><span class="mdot p">P:'+r1(r.prot||0)+'g</span><span class="mdot g">G:'+r1(r.gluc||0)+'g</span><span class="mdot l">L:'+r1(r.lip||0)+'g</span><span class="mdot f">F:'+r1(r.fib||0)+'g</span></div>'
     +'<button class="btn btn-primary mt2" style="width:100%" onclick="addRecipeToJournal(\''+section+'\','+idx+')">+ Ajouter au journal</button>'
+    +saveButton(r,'saveSuggestedRecipe(\''+section+'\','+idx+')','width:100%;margin-top:.5rem')
     +'</div>';
 }
 
@@ -1366,12 +1355,13 @@ function esc(t){return String(t==null?'':t).replace(/[&<>"']/g,function(c){retur
 
 function setRecTab(tab){
   recTab=tab;
-  ['idees','plan','courses'].forEach(function(t){
+  ['idees','plan','mes','courses'].forEach(function(t){
     document.getElementById('rec-tab-'+t).style.display=t===tab?'':'none';
     document.getElementById('rec-tab-btn-'+t).classList.toggle('active',t===tab);
   });
   if(tab==='idees')renderIdeesTab();
   else if(tab==='plan')renderPlanTab();
+  else if(tab==='mes')renderSavedRecipes();
   else renderCourses();
 }
 
@@ -1460,7 +1450,8 @@ function renderPlanResults(){
           +'<div class="mt1" style="font-size:.8rem;color:var(--text2)">'+(m.ingredients||[]).map(function(i){return esc(i.quantite)+' '+esc(i.nom);}).join(', ')+'</div>'
           +(m.instructions?'<div class="mt1" style="font-size:.78rem;color:var(--text3)">'+esc(m.instructions)+'</div>':'')
           +'<div class="flex-between mt1"><div class="macro-dots"><span class="mdot p">P:'+r1(m.prot||0)+'g</span><span class="mdot g">G:'+r1(m.gluc||0)+'g</span><span class="mdot l">L:'+r1(m.lip||0)+'g</span></div>'
-          +'<button class="btn '+(added?'btn-ghost':'btn-primary')+'" style="font-size:.8rem;min-height:32px;padding:.3rem .8rem" onclick="addPlanMealToJournal('+di+','+mi+')"'+(added?' disabled':'')+'>'+(added?'✓ Ajouté':'+ Journal')+'</button></div>'
+          +'<div style="display:flex;gap:6px">'+saveButton(m,'savePlanRecipe('+di+','+mi+')','font-size:.8rem;min-height:32px;padding:.3rem .7rem')
+          +'<button class="btn '+(added?'btn-ghost':'btn-primary')+'" style="font-size:.8rem;min-height:32px;padding:.3rem .8rem" onclick="addPlanMealToJournal('+di+','+mi+')"'+(added?' disabled':'')+'>'+(added?'✓ Ajouté':'+ Journal')+'</button></div></div>'
           +'</div>';
       }).join('')
       +'</div>';
@@ -1479,6 +1470,113 @@ function addPlanMealToJournal(di,mi){
   saveState();
   toast(m.nom+' ajouté à '+day,'success');
   renderPlanResults();
+}
+
+// ---- Mes recettes ----
+// Recettes gardées par l'utilisateur (depuis les idées ou le plan), dans state
+// donc synchronisées entre appareils.
+function getSavedRecipes(){if(!state.savedRecipes)state.savedRecipes=[];return state.savedRecipes;}
+function findSavedRecipe(nom){
+  var k=String(nom||'').trim().toLowerCase();
+  return getSavedRecipes().filter(function(s){return s.nom.trim().toLowerCase()===k;})[0];
+}
+
+function saveButton(r,onclick,style){
+  var saved=!!findSavedRecipe(r.nom);
+  return '<button class="btn btn-ghost" style="'+style+'" onclick="'+onclick+'">'+(saved?'★ Sauvegardée':'☆ Sauvegarder')+'</button>';
+}
+
+// Sauvegarde la recette, ou la retire si elle l'est déjà
+function toggleSavedRecipe(r){
+  var existing=findSavedRecipe(r.nom);
+  if(existing){
+    state.savedRecipes=getSavedRecipes().filter(function(s){return s!==existing;});
+    saveState();
+    toast('Retirée de Mes recettes');
+    return;
+  }
+  getSavedRecipes().unshift({
+    id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+    nom:r.nom,temps:r.temps||'',
+    kcal:r.kcal||0,prot:r.prot||0,gluc:r.gluc||0,fib:r.fib||0,lip:r.lip||0,
+    ingredients:(r.ingredients||r.ingredients_dispo||[]).map(function(i){return typeof i==='string'?{nom:i,quantite:''}:{nom:i.nom,quantite:i.quantite||'',rayon:i.rayon||''};}),
+    instructions:r.instructions||'',
+    savedAt:Date.now()
+  });
+  saveState();
+  toast('Sauvegardée dans Mes recettes','success');
+}
+
+function saveSuggestedRecipe(section,idx){
+  var r=recSuggestions[section][idx];
+  if(!r)return;
+  toggleSavedRecipe(r);
+  renderRecipeResults();
+}
+
+function savePlanRecipe(di,mi){
+  var j=state.mealPlan&&state.mealPlan.jours[di];
+  var m=j&&j.repas[mi];
+  if(!m)return;
+  toggleSavedRecipe(m);
+  renderPlanResults();
+}
+
+function getSavedRecipe(id){return getSavedRecipes().filter(function(s){return s.id===id;})[0];}
+
+function renderSavedRecipes(){
+  document.getElementById('saved-day').value=state.currentDay;
+  var el=document.getElementById('saved-list');
+  var list=getSavedRecipes();
+  if(!list.length){el.innerHTML='<div class="empty-state"><div class="icon">⭐</div>Aucune recette sauvegardée<br><small>Touche « Sauvegarder » sur une idée ou un repas du plan.</small></div>';return;}
+  el.innerHTML=list.map(function(r){
+    return '<div class="card section-gap">'
+      +'<div class="flex-between"><div style="font-weight:600;font-family:var(--font-display)">'+esc(r.nom)+(r.temps?' <span style="color:var(--text3);font-weight:400;font-size:.78rem">· ⏱ '+esc(r.temps)+'</span>':'')+'</div><div style="color:var(--accent);font-weight:600;white-space:nowrap">'+Math.round(r.kcal)+' kcal</div></div>'
+      +(r.ingredients.length?'<div class="mt1" style="font-size:.82rem;color:var(--text2)">'+r.ingredients.map(function(i){return esc(((i.quantite||'')+' '+i.nom).trim());}).join(', ')+'</div>':'')
+      +(r.instructions?'<div class="mt1" style="font-size:.8rem;color:var(--text3)">'+esc(r.instructions)+'</div>':'')
+      +'<div class="macro-dots mt2"><span class="mdot p">P:'+r1(r.prot)+'g</span><span class="mdot g">G:'+r1(r.gluc)+'g</span><span class="mdot l">L:'+r1(r.lip)+'g</span><span class="mdot f">F:'+r1(r.fib)+'g</span></div>'
+      +'<button class="btn btn-primary mt2" style="width:100%" onclick="addSavedToJournal(\''+r.id+'\')">+ Ajouter au journal</button>'
+      +(r.ingredients.length?'<button class="btn btn-ghost" style="width:100%;margin-top:.5rem" onclick="addSavedToCourses(\''+r.id+'\')">🛒 Ajouter à la liste de courses</button>':'')
+      +'<button class="btn btn-ghost" style="width:100%;margin-top:.5rem;color:var(--text3)" onclick="removeSavedRecipe(\''+r.id+'\')">Retirer de mes recettes</button>'
+      +'</div>';
+  }).join('');
+}
+
+function addSavedToJournal(id){
+  var r=getSavedRecipe(id);
+  if(!r)return;
+  var day=document.getElementById('saved-day').value;
+  if(!state.journal[day])state.journal[day]=[];
+  state.journal[day].push({id:Date.now()+'',nom:r.nom,grams:0,displayQty:'recette',kcal:r.kcal,prot:r.prot,gluc:r.gluc,fib:r.fib,lip:r.lip});
+  state.currentDay=day;
+  saveState();
+  toast(r.nom+' ajoutée à '+day,'success');
+  renderDashboard();
+}
+
+// Une recette sauvegardée se refait plus tard : on ne sait plus ce qu'il y a
+// dans le placard, donc tous ses ingrédients vont dans la liste.
+function addSavedToCourses(id){
+  var r=getSavedRecipe(id);
+  if(!r)return;
+  var list=getCourses();
+  var have=list.filter(function(c){return !c.coche;}).map(function(c){return c.nom.toLowerCase();});
+  var n=0;
+  r.ingredients.forEach(function(i){
+    var nom=String(i.nom||'').trim();
+    if(!nom||have.indexOf(nom.toLowerCase())>=0)return;
+    list.push({id:courseId(),nom:nom,quantite:i.quantite||'',rayon:COURSE_RAYONS.indexOf(i.rayon)>=0?i.rayon:'Autre',coche:false,source:'recette'});
+    have.push(nom.toLowerCase());
+    n++;
+  });
+  saveState();
+  toast(n?n+' article(s) ajouté(s) à la liste':'Déjà dans la liste','success');
+}
+
+function removeSavedRecipe(id){
+  state.savedRecipes=getSavedRecipes().filter(function(s){return s.id!==id;});
+  saveState();
+  renderSavedRecipes();
 }
 
 // ---- Liste de courses ----
@@ -1850,8 +1948,9 @@ function rerenderAfterSync(){
   var page=document.querySelector('.page.active');
   var id=page?page.id.replace('page-',''):'dashboard';
   // Recettes relancerait l'IA, et Profil effacerait le formulaire en cours
-  if(id==='dashboard'||id==='journal'||id==='aliments'||id==='historique')showPage(id);
+  if(id==='dashboard'||id==='journal'||id==='historique')showPage(id);
   else if(id==='recettes'&&recTab==='courses')renderCourses();
+  else if(id==='recettes'&&recTab==='mes')renderSavedRecipes();
 }
 
 async function fetchRemote(){
