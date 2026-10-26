@@ -7,10 +7,12 @@
 //   PUT /store/db   corps { baseRev, data } → { ok, rev }
 //                   409 { error, rev, data } si un autre appareil a écrit entre-temps
 //   POST /plan    → plan de repas et liste de courses (voir plan.js)
+//   POST /recettes → idées de recettes selon la diète (voir recettes.js)
 //
 // Le site passe par son origine (ALLOWED_ORIGINS).
 
 import { handlePlan } from './plan.js';
+import { handleRecettes } from './recettes.js';
 
 const DB_KEY = 'db';
 const BACKUP_DAYS = 30;
@@ -83,10 +85,11 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/store' || url.pathname.startsWith('/store/')) return handleStore(request, env, url);
-    if (url.pathname === '/plan') {
+    if (url.pathname === '/plan' || url.pathname === '/recettes') {
       const cors = corsHeaders(request.headers.get('Origin') || '', env);
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: (({ ok, ...h }) => h)(cors) });
-      return handlePlan(request, env, cors, reply);
+      const handler = url.pathname === '/plan' ? handlePlan : handleRecettes;
+      return handler(request, env, cors, reply);
     }
     return new Response('Introuvable', { status: 404 });
   },

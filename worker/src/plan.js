@@ -49,6 +49,7 @@ const SYSTEM = `Tu es le coach nutrition de CalTrack, une app de suivi calorique
 Règles :
 - Pour chaque jour, les repas additionnés doivent coller à l'objectif du jour : calories à ±5 %, protéines au moins à l'objectif, glucides et lipides proches.
 - Un jour marqué « déjà commencé » n'a qu'un budget restant : propose seulement les repas qui le remplissent, et aucun si le budget est presque nul.
+- Les règles de diète passent avant tout : un repas qui ne les respecte pas n'a pas sa place dans le plan (ex : pauvre en matières grasses → pas de carbonara, crème, fromage gras, charcuterie ni friture).
 - Respecte le temps de préparation maximum, les préférences et les aliments à éviter.
 - Cuisine simple et réaliste, ingrédients faciles à trouver en supermarché en France. Réutilise les mêmes ingrédients d'un jour à l'autre pour limiter les courses et le gaspillage, sans servir deux fois le même plat dans le plan.
 - Utilise en priorité ce que l'utilisateur a déjà en stock, et ne le mets pas dans la liste de courses.
@@ -73,6 +74,7 @@ ${lignes}
 </objectifs_par_jour>
 
 Stratégie : ${String(body.strategie || 'Maintien').slice(0, 60)}
+Règles de diète (à respecter pour chaque repas) : ${String(body.regime || 'aucune').slice(0, 1000)}
 Repas à prévoir chaque jour : ${moments.join(', ')}
 Temps de préparation maximum par repas : ${String(body.tempsMax || '30 minutes').slice(0, 30)}
 

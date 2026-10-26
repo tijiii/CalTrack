@@ -364,6 +364,9 @@ select option{background:var(--surface2)}
           <div class="form-group"><label>% Lipides</label><input type="number" id="p-pct-lip" placeholder="30" min="0" max="100"></div>
         </div>
       </div>
+      <div class="form-group mt2"><label>Règles de ta diète <small style="color:var(--text3);font-weight:400">(utilisées pour les recettes et le plan)</small></label>
+        <textarea id="p-regime" onchange="saveRegime()" placeholder="Ex : pauvre en matières grasses, pas de porc, peu de sucre…" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;font-family:var(--font-body);resize:none;height:64px;width:100%;outline:none"></textarea>
+      </div>
       <button class="btn btn-primary mt3" onclick="calculerProfil()" style="width:100%">Calculer</button>
     </div>
     <div class="card"><div class="card-title">Résultats</div><div id="profil-results" class="mt1"><div class="empty-state"><div class="icon">🎯</div>Remplissez le formulaire</div></div></div>
@@ -1010,6 +1013,15 @@ function getMacroGoals() {
   };
 }
 
+// Part des calories visée pour chaque macro (en %), selon la stratégie
+function getMacroSplit() {
+  var p = state.profil;
+  var s = p.strategie || 'maintien';
+  var strat = STRATEGIES[s] || STRATEGIES.maintien;
+  if (s === 'custom') return {prot: p.pctProt||30, gluc: p.pctGluc||40, lip: p.pctLip||30};
+  return {prot: Math.round(strat.prot*100), gluc: Math.round(strat.gluc*100), lip: Math.round(strat.lip*100)};
+}
+
 function renderMacroWidget(totals, containerId) {
   var goals = getMacroGoals();
   var el = document.getElementById(containerId);
@@ -1051,6 +1063,7 @@ function loadProfilForm() {
   if (p.pctProt) document.getElementById('p-pct-prot').value = p.pctProt;
   if (p.pctGluc) document.getElementById('p-pct-gluc').value = p.pctGluc;
   if (p.pctLip)  document.getElementById('p-pct-lip').value  = p.pctLip;
+  document.getElementById('p-regime').value = p.regime || '';
   toggleCustomMacros();
   if (p.kcalGoal) renderProfilResults();
 }
@@ -1062,6 +1075,12 @@ function toggleCustomMacros() {
 
 function onStrategieChange() {
   toggleCustomMacros();
+}
+
+function saveRegime() {
+  state.profil.regime = document.getElementById('p-regime').value.trim();
+  saveState();
+  toast('Règles de diète enregistrées', 'success');
 }
 
 function calculerProfil() {
@@ -1078,6 +1097,7 @@ function calculerProfil() {
   var kcalGoal = Math.round(tdee + obj);
   var updates = {
     nom: document.getElementById('p-nom').value,
+    regime: document.getElementById('p-regime').value.trim(),
     poids, taille, age, sexe, activite, objectif: obj,
     bmr: Math.round(bmr), tdee: Math.round(tdee), kcalGoal, strategie,
     protGoal: Math.round(kcalGoal * (STRATEGIES[strategie]||STRATEGIES.maintien).prot / 4)
@@ -1158,7 +1178,7 @@ function renderIdeesTab(){
   if(SpeechRecognitionCtor)micBtn.style.display='';
 
   var cache=state.recipesCatalog;
-  if(cache&&cache.dateKey===todayDateKey()&&cache.day===state.currentDay){
+  if(cache&&cache.dateKey===todayDateKey()&&cache.day===state.currentDay&&cache.regime===regimeKey()){
     recSuggestions=cache.suggestions;
     renderRecipeResults();
   }else if(!isListening){
@@ -1167,6 +1187,19 @@ function renderIdeesTab(){
 }
 
 var recSuggestions={avec_stock:[],avec_courses:[]};
+var recEcartees=0;
+
+// Change dès que la stratégie ou les règles de diète changent, pour ne pas
+// reproposer des recettes faites pour l'ancienne diète.
+function regimeKey(){return (state.profil.strategie||'maintien')+'|'+JSON.stringify(getMacroSplit())+'|'+(state.profil.regime||'');}
+
+// Filet de sécurité : écarte une recette dont la part de lipides dépasse
+// nettement celle visée par la diète (ex : une carbonara en diète pauvre en gras).
+function recetteDansLaDiete(r){
+  var kcal=r.kcal||0;
+  if(kcal<=0)return true;
+  return (r.lip||0)*9/kcal <= getMacroSplit().lip/100+0.05;
+}
 
 async function analyzeRecipes(){
   var ingredients=document.getElementById('rec-input').value.trim();
@@ -1180,29 +1213,27 @@ async function analyzeRecipes(){
   document.getElementById('rec-btn').disabled=true;
 
   try{
-    var resp=await fetch('https://caltrack-ai.tg-gannjometrad.workers.dev/',{
+    var resp=await fetch(SYNC_URL.replace(/\/store$/,'/recettes'),{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'recipes',ingredients:ingredients,prepTime:prepTime,budget:budget,strategie:strategieLabel})
+      body:JSON.stringify({
+        ingredients:ingredients,prepTime:prepTime,budget:budget,strategie:strategieLabel,
+        repartition:getMacroSplit(),regime:state.profil.regime||''
+      })
     });
-    var respText=await resp.text();
-    var data=JSON.parse(respText);
-    if(data.error)throw new Error(data.error);
-    var raw=data.result;
-    if(!raw)throw new Error('Pas de résultat');
-    raw=raw.replace(/```json|```/g,'').trim();
-    var jsonMatch=raw.match(/\{[\s\S]*\}/);
-    if(!jsonMatch)throw new Error('Pas de JSON trouvé');
-    var parsed=JSON.parse(jsonMatch[0]);
-    recSuggestions={avec_stock:parsed.avec_stock||[],avec_courses:parsed.avec_courses||[]};
+    var data=await resp.json().catch(function(){return {};});
+    if(!resp.ok||data.error)throw new Error(data.error||('Serveur '+resp.status));
+    var tout=(data.avec_stock||[]).concat(data.avec_courses||[]);
+    recSuggestions={avec_stock:(data.avec_stock||[]).filter(recetteDansLaDiete),avec_courses:(data.avec_courses||[]).filter(recetteDansLaDiete)};
+    recEcartees=tout.length-recSuggestions.avec_stock.length-recSuggestions.avec_courses.length;
     if(!ingredients){
-      state.recipesCatalog={dateKey:todayDateKey(),day:day,suggestions:recSuggestions};
+      state.recipesCatalog={dateKey:todayDateKey(),day:day,regime:regimeKey(),suggestions:recSuggestions};
       saveState();
     }
     renderRecipeResults();
   }catch(e){
-    toast('Erreur IA, réessayez');
     console.error(e);
+    toast(e.message&&e.message.indexOf('Serveur')!==0?e.message:'Erreur IA, réessayez');
   }finally{
     document.getElementById('rec-loading').style.display='none';
     document.getElementById('rec-btn').disabled=false;
@@ -1235,6 +1266,7 @@ function renderRecipeResults(){
     html+=recSuggestions.avec_courses.map(function(r,i){return recipeCard(r,i,'avec_courses');}).join('');
   }
   if(!html)html='<div class="empty-state"><div class="icon">🍳</div>Aucune recette trouvée, réessayez</div>';
+  if(recEcartees>0)html+='<div class="mt1" style="font-size:.78rem;color:var(--text3);text-align:center">'+recEcartees+' recette'+(recEcartees>1?'s écartées':' écartée')+' : trop grasse'+(recEcartees>1?'s':'')+' pour ta diète</div>';
   el.innerHTML=html;
 }
 
@@ -1315,7 +1347,8 @@ async function generatePlan(){
         jours:jours,moments:moments,preferences:prefs,
         stock:document.getElementById('plan-stock').value.trim(),
         tempsMax:document.getElementById('plan-time').value,
-        strategie:(STRATEGIES[state.profil.strategie]||STRATEGIES.maintien).label
+        strategie:(STRATEGIES[state.profil.strategie]||STRATEGIES.maintien).label,
+        regime:state.profil.regime||''
       })
     });
     var data=await resp.json().catch(function(){return {};});
