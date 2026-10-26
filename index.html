@@ -125,6 +125,20 @@ select option{background:var(--surface2)}
 .empty-state .icon{font-size:2rem;margin-bottom:.5rem}
 .mt1{margin-top:.5rem}.mt2{margin-top:1rem}.mt3{margin-top:1.5rem}
 .section-gap{margin-bottom:1.5rem}
+/* Recette en plein écran */
+.recipe-view{display:none;position:fixed;inset:0;background:var(--bg);z-index:250;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.recipe-view.open{display:block}
+.rv-bar{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--border);padding:calc(.5rem + env(safe-area-inset-top)) 1rem .5rem;display:flex;align-items:center;justify-content:space-between;z-index:1}
+.rv-body{max-width:640px;margin:0 auto;padding:1.25rem 1rem calc(2rem + env(safe-area-inset-bottom))}
+.rv-body h2{font-size:1.7rem;line-height:1.15;font-weight:600}
+.rv-section{font-family:var(--font-display);font-size:.78rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:1.75rem 0 .6rem;padding-bottom:.35rem;border-bottom:1px solid var(--border)}
+.rv-ing{display:flex;gap:.75rem;padding:.55rem 0;border-bottom:1px solid var(--border);font-size:1.02rem;align-items:baseline}
+.rv-qty{min-width:5.5rem;font-weight:600;white-space:nowrap}
+.rv-pesee{display:inline-block;border:1px solid var(--text);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em;padding:0 .35rem;margin-left:.35rem;vertical-align:2px}
+.rv-equiv{font-size:.85rem;color:var(--text3);margin-top:1px}
+.rv-steps{list-style:none;counter-reset:etape}
+.rv-steps li{counter-increment:etape;display:flex;gap:.9rem;padding:.75rem 0;border-bottom:1px solid var(--border);font-size:1.05rem;line-height:1.5}
+.rv-steps li::before{content:counter(etape);font-family:var(--font-display);font-size:1.5rem;font-weight:600;line-height:1.1;min-width:1.5rem}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 @media(max-width:768px){
@@ -387,6 +401,15 @@ select option{background:var(--surface2)}
   <button class="bot-nav-item" data-page="historique" onclick="showPage('historique')"><span>📅</span><span>Historique</span></button>
   <button class="bot-nav-item" data-page="profil" onclick="showPage('profil')"><span>⚙️</span><span>Profil</span></button>
 </nav>
+
+<!-- RECETTE EN PLEIN ÉCRAN -->
+<div class="recipe-view" id="recipe-view">
+  <div class="rv-bar">
+    <button class="btn btn-ghost" style="min-height:36px;padding:.3rem .8rem" onclick="history.back()">← Retour</button>
+    <div style="font-size:.8rem;color:var(--text3)">Recette</div>
+  </div>
+  <div class="rv-body" id="recipe-view-body"></div>
+</div>
 
 <!-- MODAL IA -->
 <div class="modal-bg" id="ai-modal">
@@ -1235,7 +1258,7 @@ function renderIdeesTab(){
   if(SpeechRecognitionCtor)micBtn.style.display='';
 
   var cache=state.recipesCatalog;
-  if(cache&&cache.dateKey===todayDateKey()&&cache.day===state.currentDay&&cache.regime===regimeKey()){
+  if(cache&&cache.etapes&&cache.dateKey===todayDateKey()&&cache.day===state.currentDay&&cache.regime===regimeKey()){
     recSuggestions=cache.suggestions;
     renderRecipeResults();
   }else if(!isListening){
@@ -1283,7 +1306,7 @@ async function analyzeRecipes(){
     recSuggestions={avec_stock:(data.avec_stock||[]).filter(recetteDansLaDiete),avec_courses:(data.avec_courses||[]).filter(recetteDansLaDiete)};
     recEcartees=tout.length-recSuggestions.avec_stock.length-recSuggestions.avec_courses.length;
     if(!ingredients){
-      state.recipesCatalog={dateKey:todayDateKey(),day:day,regime:regimeKey(),suggestions:recSuggestions};
+      state.recipesCatalog={dateKey:todayDateKey(),day:day,regime:regimeKey(),etapes:true,suggestions:recSuggestions};
       saveState();
     }
     renderRecipeResults();
@@ -1297,7 +1320,7 @@ async function analyzeRecipes(){
 }
 
 function recipeCard(r, idx, section){
-  var ingList=(r.ingredients||r.ingredients_dispo||[]).map(function(i){return typeof i==='string'?esc(i):esc(((i.quantite||'')+' '+i.nom).trim());}).join(', ');
+  var ingList=(r.ingredients||r.ingredients_dispo||[]).map(ingText).join(', ');
   var aAcheter=recipeToBuy(r);
   var acheter=aAcheter.length?'<div class="mt1" style="font-size:.78rem;color:var(--warn)">🛒 À acheter : '+aAcheter.map(function(i){return esc(i.nom);}).join(', ')+'</div>':'';
   return '<div class="card section-gap">'
@@ -1307,7 +1330,8 @@ function recipeCard(r, idx, section){
     +(aAcheter.length?'<button class="btn btn-ghost mt1" style="width:100%;font-size:.85rem;min-height:36px" onclick="addRecipeToCourses(\''+section+'\','+idx+')">🛒 Ajouter à la liste de courses</button>':'')
     +(r.instructions?'<div class="mt1" style="font-size:.8rem;color:var(--text3)">'+r.instructions+'</div>':'')
     +'<div class="macro-dots mt2"><span class="mdot p">P:'+r1(r.prot||0)+'g</span><span class="mdot g">G:'+r1(r.gluc||0)+'g</span><span class="mdot l">L:'+r1(r.lip||0)+'g</span><span class="mdot f">F:'+r1(r.fib||0)+'g</span></div>'
-    +'<button class="btn btn-primary mt2" style="width:100%" onclick="addRecipeToJournal(\''+section+'\','+idx+')">+ Ajouter au journal</button>'
+    +'<button class="btn btn-ghost mt2" style="width:100%" onclick="openRecipeView(\'idee\',\''+section+'\','+idx+')">📖 Voir la recette en entier</button>'
+    +'<button class="btn btn-primary" style="width:100%;margin-top:.5rem" onclick="addRecipeToJournal(\''+section+'\','+idx+')">+ Ajouter au journal</button>'
     +saveButton(r,'saveSuggestedRecipe(\''+section+'\','+idx+')','width:100%;margin-top:.5rem')
     +'</div>';
 }
@@ -1447,8 +1471,9 @@ function renderPlanResults(){
         var added=m.ajoute;
         return '<div style="border-top:1px solid var(--border);padding:.65rem 0">'
           +'<div class="flex-between"><div><div style="font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">'+esc(m.moment)+(m.temps?' · ⏱ '+esc(m.temps):'')+'</div><div style="font-weight:500">'+esc(m.nom)+'</div></div><div style="color:var(--accent);font-weight:600;white-space:nowrap">'+Math.round(m.kcal||0)+' kcal</div></div>'
-          +'<div class="mt1" style="font-size:.8rem;color:var(--text2)">'+(m.ingredients||[]).map(function(i){return esc(i.quantite)+' '+esc(i.nom);}).join(', ')+'</div>'
+          +'<div class="mt1" style="font-size:.8rem;color:var(--text2)">'+(m.ingredients||[]).map(ingText).join(', ')+'</div>'
           +(m.instructions?'<div class="mt1" style="font-size:.78rem;color:var(--text3)">'+esc(m.instructions)+'</div>':'')
+          +'<button class="btn btn-ghost mt1" style="width:100%;font-size:.85rem;min-height:36px" onclick="openRecipeView(\'plan\','+di+','+mi+')">📖 Voir la recette en entier</button>'
           +'<div class="flex-between mt1"><div class="macro-dots"><span class="mdot p">P:'+r1(m.prot||0)+'g</span><span class="mdot g">G:'+r1(m.gluc||0)+'g</span><span class="mdot l">L:'+r1(m.lip||0)+'g</span></div>'
           +'<div style="display:flex;gap:6px">'+saveButton(m,'savePlanRecipe('+di+','+mi+')','font-size:.8rem;min-height:32px;padding:.3rem .7rem')
           +'<button class="btn '+(added?'btn-ghost':'btn-primary')+'" style="font-size:.8rem;min-height:32px;padding:.3rem .8rem" onclick="addPlanMealToJournal('+di+','+mi+')"'+(added?' disabled':'')+'>'+(added?'✓ Ajouté':'+ Journal')+'</button></div></div>'
@@ -1499,8 +1524,9 @@ function toggleSavedRecipe(r){
     id:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
     nom:r.nom,temps:r.temps||'',
     kcal:r.kcal||0,prot:r.prot||0,gluc:r.gluc||0,fib:r.fib||0,lip:r.lip||0,
-    ingredients:(r.ingredients||r.ingredients_dispo||[]).map(function(i){return typeof i==='string'?{nom:i,quantite:''}:{nom:i.nom,quantite:i.quantite||'',rayon:i.rayon||''};}),
+    ingredients:(r.ingredients||r.ingredients_dispo||[]).map(function(i){return typeof i==='string'?{nom:i,quantite:''}:{nom:i.nom,quantite:i.quantite||'',pesee:i.pesee||'',equivalent:i.equivalent||'',rayon:i.rayon||''};}),
     instructions:r.instructions||'',
+    etapes:(r.etapes||[]).slice(),
     savedAt:Date.now()
   });
   saveState();
@@ -1532,10 +1558,11 @@ function renderSavedRecipes(){
   el.innerHTML=list.map(function(r){
     return '<div class="card section-gap">'
       +'<div class="flex-between"><div style="font-weight:600;font-family:var(--font-display)">'+esc(r.nom)+(r.temps?' <span style="color:var(--text3);font-weight:400;font-size:.78rem">· ⏱ '+esc(r.temps)+'</span>':'')+'</div><div style="color:var(--accent);font-weight:600;white-space:nowrap">'+Math.round(r.kcal)+' kcal</div></div>'
-      +(r.ingredients.length?'<div class="mt1" style="font-size:.82rem;color:var(--text2)">'+r.ingredients.map(function(i){return esc(((i.quantite||'')+' '+i.nom).trim());}).join(', ')+'</div>':'')
+      +(r.ingredients.length?'<div class="mt1" style="font-size:.82rem;color:var(--text2)">'+r.ingredients.map(ingText).join(', ')+'</div>':'')
       +(r.instructions?'<div class="mt1" style="font-size:.8rem;color:var(--text3)">'+esc(r.instructions)+'</div>':'')
       +'<div class="macro-dots mt2"><span class="mdot p">P:'+r1(r.prot)+'g</span><span class="mdot g">G:'+r1(r.gluc)+'g</span><span class="mdot l">L:'+r1(r.lip)+'g</span><span class="mdot f">F:'+r1(r.fib)+'g</span></div>'
-      +'<button class="btn btn-primary mt2" style="width:100%" onclick="addSavedToJournal(\''+r.id+'\')">+ Ajouter au journal</button>'
+      +'<button class="btn btn-ghost mt2" style="width:100%" onclick="openRecipeView(\'mes\',\''+r.id+'\')">📖 Voir la recette en entier</button>'
+      +'<button class="btn btn-primary" style="width:100%;margin-top:.5rem" onclick="addSavedToJournal(\''+r.id+'\')">+ Ajouter au journal</button>'
       +(r.ingredients.length?'<button class="btn btn-ghost" style="width:100%;margin-top:.5rem" onclick="addSavedToCourses(\''+r.id+'\')">🛒 Ajouter à la liste de courses</button>':'')
       +'<button class="btn btn-ghost" style="width:100%;margin-top:.5rem;color:var(--text3)" onclick="removeSavedRecipe(\''+r.id+'\')">Retirer de mes recettes</button>'
       +'</div>';
@@ -1577,6 +1604,97 @@ function removeSavedRecipe(id){
   state.savedRecipes=getSavedRecipes().filter(function(s){return s.id!==id;});
   saveState();
   renderSavedRecipes();
+}
+
+// ---- Recette en plein écran ----
+// Les recettes d'avant les étapes détaillées n'ont ni pesee ni etapes : on
+// affiche alors simplement la quantité et le petit texte d'instructions.
+function ingPesee(i){return i&&(i.pesee==='cru'||i.pesee==='cuit')?i.pesee:'';}
+function ingText(i){
+  if(typeof i==='string')return esc(i);
+  var p=ingPesee(i);
+  return esc(((i.quantite||'')+' '+i.nom).trim())+(p?' ('+p+')':'');
+}
+
+var recipeViewSrc=null;
+function getViewedRecipe(){
+  var v=recipeViewSrc;
+  if(!v)return null;
+  if(v.kind==='idee')return (recSuggestions[v.a]||[])[v.b];
+  if(v.kind==='plan'){var j=state.mealPlan&&state.mealPlan.jours[v.a];return j&&j.repas[v.b];}
+  return getSavedRecipe(v.a);
+}
+
+function openRecipeView(kind,a,b){
+  recipeViewSrc={kind:kind,a:a,b:b};
+  if(!getViewedRecipe()){recipeViewSrc=null;return;}
+  renderRecipeView();
+  var el=document.getElementById('recipe-view');
+  el.classList.add('open');
+  el.scrollTop=0;
+  document.body.style.overflow='hidden';
+  // Le bouton retour du téléphone ferme la recette au lieu de quitter l'app
+  history.pushState({recette:true},'');
+}
+
+function closeRecipeView(){
+  recipeViewSrc=null;
+  document.getElementById('recipe-view').classList.remove('open');
+  document.body.style.overflow='';
+}
+window.addEventListener('popstate',function(){if(recipeViewSrc)closeRecipeView();});
+
+function renderRecipeView(){
+  var r=getViewedRecipe();
+  if(!r)return;
+  var v=recipeViewSrc;
+  var ings=r.ingredients||r.ingredients_dispo||[];
+  var html='';
+  if(v.kind==='plan')html+='<div style="font-size:.78rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.35rem">'+esc(state.mealPlan.jours[v.a].jour)+' · '+esc(r.moment)+'</div>';
+  html+='<h2>'+esc(r.nom)+'</h2>';
+  html+='<div class="mt1" style="color:var(--text2)">'+(r.temps?'⏱ '+esc(r.temps)+' · ':'')+'1 personne</div>';
+  if(r.instructions&&(r.etapes||[]).length)html+='<div class="mt2" style="font-style:italic;color:var(--text2)">'+esc(r.instructions)+'</div>';
+  html+='<div class="macros-row mt2">'
+    +'<div class="macro-chip"><div class="val">'+Math.round(r.kcal||0)+'</div><div class="lbl">kcal</div></div>'
+    +'<div class="macro-chip"><div class="val" style="color:var(--prot)">'+r1(r.prot||0)+'g</div><div class="lbl">prot.</div></div>'
+    +'<div class="macro-chip"><div class="val" style="color:var(--gluc)">'+r1(r.gluc||0)+'g</div><div class="lbl">gluc.</div></div>'
+    +'<div class="macro-chip"><div class="val" style="color:var(--lip)">'+r1(r.lip||0)+'g</div><div class="lbl">lip.</div></div>'
+    +'</div>';
+
+  html+='<div class="rv-section">Ingrédients</div>';
+  html+=ings.map(function(i){
+    if(typeof i==='string')return '<div class="rv-ing"><div>'+esc(i)+'</div></div>';
+    var p=ingPesee(i);
+    return '<div class="rv-ing"><div class="rv-qty">'+esc(i.quantite||'')+'</div><div style="flex:1">'
+      +esc(i.nom)+(p?'<span class="rv-pesee">pesé '+p+'</span>':'')
+      +(i.equivalent?'<div class="rv-equiv">'+esc(i.equivalent)+'</div>':'')
+      +(i.a_acheter?'<div class="rv-equiv">🛒 à acheter</div>':'')
+      +'</div></div>';
+  }).join('');
+  if(ings.some(function(i){return ingPesee(i);}))html+='<div class="mt1" style="font-size:.85rem;color:var(--text3)">« Pesé cru » : pèse l\'ingrédient avant de le cuire. « Pesé cuit » : pèse-le déjà cuit.</div>';
+
+  html+='<div class="rv-section">Préparation</div>';
+  if((r.etapes||[]).length){
+    html+='<ol class="rv-steps">'+r.etapes.map(function(e){return '<li><div>'+esc(e)+'</div></li>';}).join('')+'</ol>';
+  }else{
+    html+='<div style="font-size:1.05rem;line-height:1.5">'+esc(r.instructions||'Pas d\'instructions.')+'</div>'
+      +'<div class="mt1" style="font-size:.85rem;color:var(--text3)">Recette créée avant les étapes détaillées. Les nouvelles recettes proposées les ont toutes.</div>';
+  }
+
+  html+='<div class="mt3">';
+  if(v.kind==='idee'){
+    html+='<button class="btn btn-primary" style="width:100%" onclick="addRecipeToJournal(\''+v.a+'\','+v.b+')">+ Ajouter au journal</button>';
+    if(recipeToBuy(r).length)html+='<button class="btn btn-ghost" style="width:100%;margin-top:.5rem" onclick="addRecipeToCourses(\''+v.a+'\','+v.b+')">🛒 Ajouter à la liste de courses</button>';
+    html+=saveButton(r,'saveSuggestedRecipe(\''+v.a+'\','+v.b+');renderRecipeView()','width:100%;margin-top:.5rem');
+  }else if(v.kind==='plan'){
+    html+='<button class="btn '+(r.ajoute?'btn-ghost':'btn-primary')+'" style="width:100%" onclick="addPlanMealToJournal('+v.a+','+v.b+');renderRecipeView()"'+(r.ajoute?' disabled':'')+'>'+(r.ajoute?'✓ Ajouté au journal':'+ Ajouter au journal')+'</button>';
+    html+=saveButton(r,'savePlanRecipe('+v.a+','+v.b+');renderRecipeView()','width:100%;margin-top:.5rem');
+  }else{
+    html+='<button class="btn btn-primary" style="width:100%" onclick="addSavedToJournal(\''+r.id+'\')">+ Ajouter au journal</button>';
+    if(ings.length)html+='<button class="btn btn-ghost" style="width:100%;margin-top:.5rem" onclick="addSavedToCourses(\''+r.id+'\')">🛒 Ajouter à la liste de courses</button>';
+  }
+  html+='</div>';
+  document.getElementById('recipe-view-body').innerHTML=html;
 }
 
 // ---- Liste de courses ----
