@@ -1309,13 +1309,14 @@ async function analyzeRecipes(){
 }
 
 function recipeCard(r, idx, section){
-  var ingList=(r.ingredients||r.ingredients_dispo||[]).join(', ');
-  var acheter=r.a_acheter&&r.a_acheter.length?'<div class="mt1" style="font-size:.78rem;color:var(--warn)">🛒 À acheter : '+r.a_acheter.join(', ')+'</div>':'';
+  var ingList=(r.ingredients||r.ingredients_dispo||[]).map(function(i){return typeof i==='string'?esc(i):esc(((i.quantite||'')+' '+i.nom).trim());}).join(', ');
+  var aAcheter=recipeToBuy(r);
+  var acheter=aAcheter.length?'<div class="mt1" style="font-size:.78rem;color:var(--warn)">🛒 À acheter : '+aAcheter.map(function(i){return esc(i.nom);}).join(', ')+'</div>':'';
   return '<div class="card section-gap">'
     +'<div class="flex-between"><div style="font-weight:600;font-family:var(--font-display)">'+r.nom+(r.temps?' <span style="color:var(--text3);font-weight:400;font-size:.78rem">· ⏱ '+r.temps+'</span>':'')+'</div><div style="color:var(--accent);font-weight:600">'+Math.round(r.kcal)+' kcal</div></div>'
     +'<div class="mt1" style="font-size:.82rem;color:var(--text2)">'+ingList+'</div>'
     +acheter
-    +(r.a_acheter&&r.a_acheter.length?'<button class="btn btn-ghost mt1" style="width:100%;font-size:.85rem;min-height:36px" onclick="addRecipeToCourses(\''+section+'\','+idx+')">🛒 Ajouter à la liste de courses</button>':'')
+    +(aAcheter.length?'<button class="btn btn-ghost mt1" style="width:100%;font-size:.85rem;min-height:36px" onclick="addRecipeToCourses(\''+section+'\','+idx+')">🛒 Ajouter à la liste de courses</button>':'')
     +(r.instructions?'<div class="mt1" style="font-size:.8rem;color:var(--text3)">'+r.instructions+'</div>':'')
     +'<div class="macro-dots mt2"><span class="mdot p">P:'+r1(r.prot||0)+'g</span><span class="mdot g">G:'+r1(r.gluc||0)+'g</span><span class="mdot l">L:'+r1(r.lip||0)+'g</span><span class="mdot f">F:'+r1(r.fib||0)+'g</span></div>'
     +'<button class="btn btn-primary mt2" style="width:100%" onclick="addRecipeToJournal(\''+section+'\','+idx+')">+ Ajouter au journal</button>'
@@ -1502,13 +1503,30 @@ function addCourseManual(){
   renderCourses();
 }
 
+// Ingrédients d'une recette à acheter. Les recettes gardées en cache avant
+// le passage aux ingrédients détaillés n'ont qu'une liste de noms (a_acheter).
+function recipeToBuy(r){
+  var ings=r.ingredients||[];
+  if(ings.length&&typeof ings[0]==='object'){
+    return ings.filter(function(i){return i&&i.nom&&i.a_acheter;});
+  }
+  return (r.a_acheter||[]).map(function(nom){return {nom:String(nom),quantite:''};});
+}
+
 function addRecipeToCourses(section,idx){
   var r=recSuggestions[section][idx];
-  if(!r||!r.a_acheter)return;
+  if(!r)return;
   var list=getCourses();
-  var have=list.map(function(c){return c.nom.toLowerCase();});
+  // Un article déjà coché (acheté) ne compte pas : on le remet dans la liste
+  var have=list.filter(function(c){return !c.coche;}).map(function(c){return c.nom.toLowerCase();});
   var n=0;
-  r.a_acheter.forEach(function(nom){if(have.indexOf(String(nom).toLowerCase())<0){list.push({id:courseId(),nom:String(nom),quantite:'',rayon:'Autre',coche:false,source:'recette'});n++;}});
+  recipeToBuy(r).forEach(function(i){
+    var nom=String(i.nom).trim();
+    if(!nom||have.indexOf(nom.toLowerCase())>=0)return;
+    list.push({id:courseId(),nom:nom,quantite:i.quantite||'',rayon:COURSE_RAYONS.indexOf(i.rayon)>=0?i.rayon:'Autre',coche:false,source:'recette'});
+    have.push(nom.toLowerCase());
+    n++;
+  });
   saveState();
   toast(n?n+' article(s) ajouté(s) à la liste':'Déjà dans la liste','success');
 }

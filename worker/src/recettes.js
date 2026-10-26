@@ -10,11 +10,19 @@ import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import * as z from 'zod/v4';
 
+// Chaque ingrédient dit lui-même s'il faut l'acheter : la liste de courses
+// reprend tous ceux marqués à acheter, sans qu'aucun ne se perde en route.
+const Ingredient = z.object({
+  nom: z.string().describe('Nom simple de l\'ingrédient, ex : « blanc de poulet », « riz basmati ».'),
+  quantite: z.string().describe('Quantité pour ce repas, ex : « 150 g », « 2 », « 1 c. à soupe ».'),
+  rayon: z.enum(['Fruits & légumes', 'Viandes & poissons', 'Crèmerie & oeufs', 'Féculents & céréales', 'Épicerie', 'Surgelés', 'Boissons', 'Autre']),
+  a_acheter: z.boolean().describe('true si l\'ingrédient n\'est pas dans les ingrédients disponibles. Seuls le sel, le poivre et l\'eau sont considérés comme toujours en stock.'),
+});
+
 const Recette = z.object({
   nom: z.string(),
   temps: z.string().describe('Temps de préparation, ex : « 20 min ».'),
-  ingredients: z.array(z.string()).describe('Ingrédients avec leur quantité, ex : « 150 g de blanc de poulet ».'),
-  a_acheter: z.array(z.string()).describe('Ingrédients à acheter en plus de ce qui est disponible, nom simple. Vide si rien à acheter.'),
+  ingredients: z.array(Ingredient).describe('Tous les ingrédients de la recette, y compris huile, épices, sauces et aromates.'),
   instructions: z.string().describe('Deux ou trois phrases courtes.'),
   kcal: z.number(),
   prot: z.number().describe('Protéines en grammes.'),
