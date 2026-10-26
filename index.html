@@ -333,6 +333,13 @@ select option{background:var(--surface2)}
 
 <div class="page" id="page-profil">
   <div class="page-header"><h2>Mon Profil</h2><p>Calculez vos besoins</p></div>
+  <div class="card section-gap">
+    <div class="card-title">Ton objectif, avec tes mots</div>
+    <textarea id="p-objectif" class="mt1" placeholder="Ex : je souhaite rester à mon poids de corps mais en perdant de la graisse" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;font-family:var(--font-body);resize:none;height:80px;width:100%;outline:none"></textarea>
+    <button class="btn btn-primary mt2" id="p-objectif-btn" onclick="adapterObjectif()" style="width:100%">Adapter mes objectifs</button>
+    <div id="p-objectif-loading" style="display:none;text-align:center;padding:1rem;color:var(--text2);font-size:.85rem">Calcul de tes objectifs…</div>
+    <div id="p-objectif-result" class="mt1" style="font-size:.85rem;color:var(--text2)"></div>
+  </div>
   <div class="profil-grid">
     <div class="card">
       <div class="card-title">Informations</div>
@@ -1004,13 +1011,22 @@ function getMacroGoals() {
   var pctProt = s === 'custom' ? (p.pctProt||30)/100 : strat.prot;
   var pctGluc = s === 'custom' ? (p.pctGluc||40)/100 : strat.gluc;
   var pctLip  = s === 'custom' ? (p.pctLip||30)/100  : strat.lip;
+  var fib = s === 'custom' && p.fibGoal ? p.fibGoal : strat.fib;
   return {
     kcal: kcal,
     prot: Math.round(kcal * pctProt / 4),
     gluc: Math.round(kcal * pctGluc / 4),
     lip:  Math.round(kcal * pctLip  / 9),
-    fib:  strat.fib
+    fib:  fib
   };
+}
+
+// Nom de l'objectif affiché et envoyé à l'IA : celui tiré de l'objectif écrit
+// par l'utilisateur s'il y en a un, sinon celui de la stratégie choisie.
+function strategieLabel() {
+  var p = state.profil;
+  if (p.strategie === 'custom' && p.objectifResume) return p.objectifResume;
+  return (STRATEGIES[p.strategie] || STRATEGIES.maintien).label;
 }
 
 // Part des calories visée pour chaque macro (en %), selon la stratégie
@@ -1064,6 +1080,8 @@ function loadProfilForm() {
   if (p.pctGluc) document.getElementById('p-pct-gluc').value = p.pctGluc;
   if (p.pctLip)  document.getElementById('p-pct-lip').value  = p.pctLip;
   document.getElementById('p-regime').value = p.regime || '';
+  document.getElementById('p-objectif').value = p.objectifLibre || '';
+  renderObjectifResult();
   toggleCustomMacros();
   if (p.kcalGoal) renderProfilResults();
 }
@@ -1093,7 +1111,8 @@ function calculerProfil() {
   if (!poids || !taille || !age) { toast('Remplissez tous les champs'); return; }
   var bmr = sexe === 'H' ? 10*poids+6.25*taille-5*age+5 : 10*poids+6.25*taille-5*age-161;
   var tdee = bmr * activite;
-  var obj = (STRATEGIES[strategie]||STRATEGIES.maintien).obj;
+  // En personnalisé, garder l'écart calorique tiré de l'objectif écrit
+  var obj = strategie === 'custom' ? (state.profil.ajustKcal || 0) : (STRATEGIES[strategie]||STRATEGIES.maintien).obj;
   var kcalGoal = Math.round(tdee + obj);
   var updates = {
     nom: document.getElementById('p-nom').value,
@@ -1113,11 +1132,60 @@ function calculerProfil() {
   toast('Profil mis à jour !', 'success');
 }
 
+// L'IA traduit l'objectif écrit en calories, macros et règles de diète, puis
+// on recalcule le profil avec ces réglages (stratégie « Personnalisé »).
+async function adapterObjectif() {
+  var texte = document.getElementById('p-objectif').value.trim();
+  if (!texte) { toast('Écris ton objectif d\'abord'); return; }
+  var poids = parseFloat(document.getElementById('p-poids').value);
+  var taille = parseFloat(document.getElementById('p-taille').value);
+  var age = parseFloat(document.getElementById('p-age').value);
+  var sexe = document.getElementById('p-sexe').value;
+  var activite = parseFloat(document.getElementById('p-activite').value);
+  if (!poids || !taille || !age) { toast('Remplis d\'abord âge, poids et taille'); return; }
+  var bmr = sexe === 'H' ? 10*poids+6.25*taille-5*age+5 : 10*poids+6.25*taille-5*age-161;
+
+  document.getElementById('p-objectif-loading').style.display = 'block';
+  document.getElementById('p-objectif-btn').disabled = true;
+  try {
+    var resp = await fetch(SYNC_URL.replace(/\/store$/, '/objectif'), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ objectif: texte, regime: state.profil.regime || '', profil: {sexe: sexe, age: age, poids: poids, taille: taille, tdee: Math.round(bmr*activite)} })
+    });
+    var data = await resp.json().catch(function(){ return {}; });
+    if (!resp.ok || data.error) throw new Error(data.error || ('Serveur '+resp.status));
+    state.profil = Object.assign({}, state.profil, {
+      objectifLibre: texte, objectifResume: data.resume, objectifExplication: data.explication,
+      ajustKcal: Math.round(data.ajustKcal || 0), fibGoal: Math.round(data.fib || 0) || null,
+      regime: data.regime || state.profil.regime || '', strategie: 'custom',
+      pctProt: Math.round(data.pctProt), pctGluc: Math.round(data.pctGluc), pctLip: Math.round(data.pctLip)
+    });
+    loadProfilForm();
+    calculerProfil();
+  } catch (e) {
+    console.error(e);
+    toast(e.message && e.message.indexOf('Serveur') !== 0 ? e.message : 'Erreur IA, réessayez');
+  } finally {
+    document.getElementById('p-objectif-loading').style.display = 'none';
+    document.getElementById('p-objectif-btn').disabled = false;
+  }
+}
+
+function renderObjectifResult() {
+  var p = state.profil;
+  var el = document.getElementById('p-objectif-result');
+  if (p.strategie !== 'custom' || !p.objectifResume) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="font-weight:600;color:var(--text)">'+p.objectifResume+' · '+(p.ajustKcal > 0 ? '+' : '')+(p.ajustKcal || 0)+' kcal par rapport à ta dépense</div>'
+    + '<div class="mt1">'+(p.objectifExplication || '')+'</div>'
+    + (p.regime ? '<div class="mt1" style="color:var(--text3)">Règles de diète : '+p.regime+'</div>' : '');
+}
+
 function renderProfilResults() {
   var p = state.profil;
   if (!p.kcalGoal) return;
   var goals = getMacroGoals();
-  var stratLabel = (STRATEGIES[p.strategie] || STRATEGIES.maintien).label;
+  var stratLabel = strategieLabel();
 
   // Totaux du jour actuel pour le widget profil
   var dn = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
@@ -1140,6 +1208,7 @@ function renderProfilResults() {
     +'</div>';
 
   renderMacroWidget(todayTotals, 'profil-macro-widget');
+  renderObjectifResult();
 }
 
 function openCustomModal(){document.getElementById('custom-modal').classList.add('open');}
@@ -1206,7 +1275,6 @@ async function analyzeRecipes(){
   var prepTime=document.getElementById('rec-time').value;
   var day=document.getElementById('rec-day').value;
   var budget=getRemainingBudget(day);
-  var strategieLabel=(STRATEGIES[state.profil.strategie]||STRATEGIES.maintien).label;
 
   document.getElementById('rec-loading').style.display='block';
   document.getElementById('rec-results').innerHTML='';
@@ -1217,7 +1285,7 @@ async function analyzeRecipes(){
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        ingredients:ingredients,prepTime:prepTime,budget:budget,strategie:strategieLabel,
+        ingredients:ingredients,prepTime:prepTime,budget:budget,strategie:strategieLabel(),
         repartition:getMacroSplit(),regime:state.profil.regime||''
       })
     });
@@ -1347,7 +1415,7 @@ async function generatePlan(){
         jours:jours,moments:moments,preferences:prefs,
         stock:document.getElementById('plan-stock').value.trim(),
         tempsMax:document.getElementById('plan-time').value,
-        strategie:(STRATEGIES[state.profil.strategie]||STRATEGIES.maintien).label,
+        strategie:strategieLabel(),
         regime:state.profil.regime||''
       })
     });
