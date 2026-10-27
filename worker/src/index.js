@@ -9,12 +9,14 @@
 //   POST /plan    → plan de repas et liste de courses (voir plan.js)
 //   POST /recettes → idées de recettes selon la diète (voir recettes.js)
 //   POST /objectif → objectif écrit en langage libre traduit en réglages (voir objectif.js)
+//   GET /aliments?q= → produits de marque trouvés dans Open Food Facts (voir aliments.js)
 //
 // Le site passe par son origine (ALLOWED_ORIGINS).
 
 import { handlePlan } from './plan.js';
 import { handleRecettes } from './recettes.js';
 import { handleObjectif } from './objectif.js';
+import { handleAliments } from './aliments.js';
 
 const DB_KEY = 'db';
 const BACKUP_DAYS = 30;
@@ -87,7 +89,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/store' || url.pathname.startsWith('/store/')) return handleStore(request, env, url);
-    const handlers = { '/plan': handlePlan, '/recettes': handleRecettes, '/objectif': handleObjectif };
+    const handlers = { '/plan': handlePlan, '/recettes': handleRecettes, '/objectif': handleObjectif, '/aliments': handleAliments };
     if (handlers[url.pathname]) {
       const cors = corsHeaders(request.headers.get('Origin') || '', env);
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: (({ ok, ...h }) => h)(cors) });
