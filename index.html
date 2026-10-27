@@ -150,6 +150,25 @@ select option{background:var(--surface2)}
 .rv-steps{list-style:none;counter-reset:etape}
 .rv-steps li{counter-increment:etape;display:flex;gap:.9rem;padding:.75rem 0;border-bottom:1px solid var(--border);font-size:1.05rem;line-height:1.5}
 .rv-steps li::before{content:counter(etape);font-family:var(--font-display);font-size:1.5rem;font-weight:600;line-height:1.1;min-width:1.5rem}
+.rv-steps .rv-step-t{font-weight:600}
+.rv-steps .rv-step-d{font-size:.85rem;color:var(--text3);margin-left:.4rem;font-weight:400}
+.rv-group{font-style:italic;color:var(--text2);margin:.9rem 0 .1rem}
+.rv-list{padding-left:1.2rem;font-size:1.02rem;line-height:1.55}
+.rv-list li{padding:.2rem 0}
+.rv-meta{display:flex;flex-wrap:wrap;gap:.35rem 1.2rem;color:var(--text2);margin-top:.5rem}
+.rv-print-only{display:none}
+@media print{
+  @page{margin:16mm 14mm}
+  body{background:#fff;min-height:0}
+  body>*:not(#recipe-view){display:none!important}
+  #recipe-view{display:block!important;position:static;overflow:visible}
+  .rv-bar,.rv-actions{display:none!important}
+  .rv-body{max-width:none;padding:0}
+  .rv-print-only{display:block}
+  .rv-ing,.rv-steps li{break-inside:avoid}
+  .rv-section{break-after:avoid}
+  .macro-chip{border:1px solid #ccc}
+}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 @media(max-width:768px){
@@ -1819,6 +1838,7 @@ function toggleSavedRecipe(r){
     ingredients:(r.ingredients||r.ingredients_dispo||[]).map(function(i){return typeof i==='string'?{nom:i,quantite:''}:{nom:i.nom,quantite:i.quantite||'',pesee:i.pesee||'',equivalent:i.equivalent||'',rayon:i.rayon||''};}),
     instructions:r.instructions||'',
     etapes:(r.etapes||[]).slice(),
+    fiche:r.fiche||null,
     savedAt:Date.now()
   });
   saveState();
@@ -1867,7 +1887,7 @@ function renderSavedRecipes(){
       +(r.ingredients.length?'<div class="mt1" style="font-size:.82rem;color:var(--text2)">'+r.ingredients.map(ingText).join(', ')+'</div>':'')
       +(r.instructions?'<div class="mt1" style="font-size:.8rem;color:var(--text3)">'+esc(r.instructions)+'</div>':'')
       +'<div class="macro-dots mt2"><span class="mdot p">P:'+r1(r.prot)+'g</span><span class="mdot g">G:'+r1(r.gluc)+'g</span><span class="mdot l">L:'+r1(r.lip)+'g</span><span class="mdot f">F:'+r1(r.fib)+'g</span></div>'
-      +'<button class="btn btn-ghost mt2" style="width:100%" onclick="openRecipeView(\'mes\',\''+r.id+'\')">📖 Voir la recette en entier</button>'
+      +'<button class="btn btn-ghost mt2" style="width:100%" onclick="openRecipeView(\'mes\',\''+r.id+'\')">'+(r.fiche?'📜 Voir la fiche détaillée':'📖 Voir la recette en entier')+'</button>'
       +'<button class="btn btn-primary" style="width:100%;margin-top:.5rem" onclick="addSavedToJournal(\''+r.id+'\')">+ Ajouter au journal</button>'
       +(r.ingredients.length?'<button class="btn btn-ghost" style="width:100%;margin-top:.5rem" onclick="addSavedToCourses(\''+r.id+'\')">🛒 Ajouter à la liste de courses</button>':'')
       +'<button class="btn btn-ghost" style="width:100%;margin-top:.5rem;color:var(--text3)" onclick="removeSavedRecipe(\''+r.id+'\')">Retirer de mes repas</button>'
@@ -1952,6 +1972,8 @@ function closeRecipeView(){
   recipeViewSrc=null;
   document.getElementById('recipe-view').classList.remove('open');
   document.body.style.overflow='';
+  // une fiche a pu être ajoutée pendant la lecture
+  if(recTab==='mes'&&document.getElementById('page-recettes').classList.contains('active'))renderSavedRecipes();
 }
 window.addEventListener('popstate',function(){if(recipeViewSrc)closeRecipeView();});
 
@@ -1962,9 +1984,20 @@ function renderRecipeView(){
   var ings=r.ingredients||r.ingredients_dispo||[];
   var html='';
   if(v.kind==='plan')html+='<div style="font-size:.78rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.35rem">'+esc(state.mealPlan.jours[v.a].jour)+' · '+esc(r.moment)+'</div>';
+  var fiche=r.fiche;
   html+='<h2>'+esc(r.nom)+'</h2>';
-  html+='<div class="mt1" style="color:var(--text2)">'+(r.temps?'⏱ '+esc(r.temps)+' · ':'')+'1 personne</div>';
-  if(r.instructions&&(r.etapes||[]).length)html+='<div class="mt2" style="font-style:italic;color:var(--text2)">'+esc(r.instructions)+'</div>';
+  if(fiche){
+    html+='<div class="rv-meta">'
+      +(fiche.temps_preparation?'<span>Préparation : '+esc(fiche.temps_preparation)+'</span>':'')
+      +(fiche.temps_cuisson?'<span>Cuisson : '+esc(fiche.temps_cuisson)+'</span>':'')
+      +(fiche.difficulte?'<span>'+esc(fiche.difficulte)+'</span>':'')
+      +'<span>1 personne</span></div>';
+    if(fiche.intro)html+='<div class="mt2" style="font-style:italic;color:var(--text2);font-size:1.05rem;line-height:1.5">'+esc(fiche.intro)+'</div>';
+    ings=fiche.ingredients&&fiche.ingredients.length?fiche.ingredients:ings;
+  }else{
+    html+='<div class="mt1" style="color:var(--text2)">'+(r.temps?'⏱ '+esc(r.temps)+' · ':'')+'1 personne</div>';
+    if(r.instructions&&(r.etapes||[]).length)html+='<div class="mt2" style="font-style:italic;color:var(--text2)">'+esc(r.instructions)+'</div>';
+  }
   html+='<div class="macros-row mt2">'
     +'<div class="macro-chip"><div class="val">'+Math.round(r.kcal||0)+'</div><div class="lbl">kcal</div></div>'
     +'<div class="macro-chip"><div class="val" style="color:var(--prot)">'+r1(r.prot||0)+'g</div><div class="lbl">prot.</div></div>'
@@ -1972,11 +2005,16 @@ function renderRecipeView(){
     +'<div class="macro-chip"><div class="val" style="color:var(--lip)">'+r1(r.lip||0)+'g</div><div class="lbl">lip.</div></div>'
     +'</div>';
 
+  if(fiche&&(fiche.materiel||[]).length){
+    html+='<div class="rv-section">Matériel</div><ul class="rv-list">'+fiche.materiel.map(function(m){return '<li>'+esc(m)+'</li>';}).join('')+'</ul>';
+  }
   html+='<div class="rv-section">Ingrédients</div>';
+  var groupe='';
   html+=ings.map(function(i){
     if(typeof i==='string')return '<div class="rv-ing"><div>'+esc(i)+'</div></div>';
-    var p=ingPesee(i);
-    return '<div class="rv-ing"><div class="rv-qty">'+esc(i.quantite||'')+'</div><div style="flex:1">'
+    var p=ingPesee(i),titre='';
+    if(i.groupe&&i.groupe!==groupe){groupe=i.groupe;titre='<div class="rv-group">'+esc(i.groupe)+'</div>';}
+    return titre+'<div class="rv-ing"><div class="rv-qty">'+esc(i.quantite||'')+'</div><div style="flex:1">'
       +esc(i.nom)+(p?'<span class="rv-pesee">pesé '+p+'</span>':'')
       +(i.equivalent?'<div class="rv-equiv">'+esc(i.equivalent)+'</div>':'')
       +(i.a_acheter?'<div class="rv-equiv">🛒 à acheter</div>':'')
@@ -1985,14 +2023,34 @@ function renderRecipeView(){
   if(ings.some(function(i){return ingPesee(i);}))html+='<div class="mt1" style="font-size:.85rem;color:var(--text3)">« Pesé cru » : pèse l\'ingrédient avant de le cuire. « Pesé cuit » : pèse-le déjà cuit.</div>';
 
   html+='<div class="rv-section">Préparation</div>';
-  if((r.etapes||[]).length){
+  if(fiche&&(fiche.etapes||[]).length){
+    html+='<ol class="rv-steps">'+fiche.etapes.map(function(e){return '<li><div><div class="rv-step-t">'+esc(e.titre)+(e.duree?'<span class="rv-step-d">'+esc(e.duree)+'</span>':'')+'</div><div>'+esc(e.detail)+'</div></div></li>';}).join('')+'</ol>';
+  }else if((r.etapes||[]).length){
     html+='<ol class="rv-steps">'+r.etapes.map(function(e){return '<li><div>'+esc(e)+'</div></li>';}).join('')+'</ol>';
   }else{
     html+='<div style="font-size:1.05rem;line-height:1.5">'+esc(r.instructions||'Pas d\'instructions.')+'</div>'
       +'<div class="mt1" style="font-size:.85rem;color:var(--text3)">Recette créée avant les étapes détaillées. Les nouvelles recettes proposées les ont toutes.</div>';
   }
 
-  html+='<div class="mt3">';
+  if(fiche){
+    if((fiche.astuces||[]).length)html+='<div class="rv-section">Astuces</div><ul class="rv-list">'+fiche.astuces.map(function(a){return '<li>'+esc(a)+'</li>';}).join('')+'</ul>';
+    if((fiche.variantes||[]).length)html+='<div class="rv-section">Variantes</div><ul class="rv-list">'+fiche.variantes.map(function(a){return '<li>'+esc(a)+'</li>';}).join('')+'</ul>';
+    if(fiche.conservation)html+='<div class="rv-section">Conservation</div><div style="font-size:1.02rem;line-height:1.55">'+esc(fiche.conservation)+'</div>';
+    html+='<div class="rv-print-only mt3" style="font-size:.8rem;color:var(--text3)">CalTrack · '+new Date().toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'})+'</div>';
+  }
+
+  html+='<div class="mt3 rv-actions">';
+  if(ficheLoading){
+    html+='<div class="card" style="text-align:center;color:var(--text2)"><div style="font-size:1.5rem;animation:spin 1s linear infinite;display:inline-block">⟳</div><div class="mt1">Rédaction de la fiche détaillée… (jusqu\'à une minute)</div></div>';
+  }else if(fiche){
+    html+='<button class="btn btn-primary" style="width:100%" onclick="exportRecipePdf()">⬇ Exporter en PDF</button>';
+  }else{
+    html+='<button class="btn btn-primary" style="width:100%" onclick="detailRecipe()">📜 Détailler la recette</button>'
+      +'<div class="mt1" style="font-size:.85rem;color:var(--text3);text-align:center">Matériel, étapes pas à pas, astuces, variantes et conservation, exportable en PDF.</div>';
+  }
+  html+='</div>';
+
+  html+='<div class="mt2 rv-actions">';
   if(v.kind==='idee'){
     html+='<button class="btn btn-primary" style="width:100%" onclick="addRecipeToJournal(\''+v.a+'\','+v.b+')">+ Ajouter au journal</button>';
     if(recipeToBuy(r).length)html+='<button class="btn btn-ghost" style="width:100%;margin-top:.5rem" onclick="addRecipeToCourses(\''+v.a+'\','+v.b+')">🛒 Ajouter à la liste de courses</button>';
@@ -2004,8 +2062,54 @@ function renderRecipeView(){
     html+='<button class="btn btn-primary" style="width:100%" onclick="addSavedToJournal(\''+r.id+'\')">+ Ajouter au journal</button>';
     if(ings.length)html+='<button class="btn btn-ghost" style="width:100%;margin-top:.5rem" onclick="addSavedToCourses(\''+r.id+'\')">🛒 Ajouter à la liste de courses</button>';
   }
+  if(fiche&&!ficheLoading)html+='<button class="btn btn-ghost" style="width:100%;margin-top:.5rem;color:var(--text3)" onclick="detailRecipe()">↻ Réécrire la fiche</button>';
   html+='</div>';
   document.getElementById('recipe-view-body').innerHTML=html;
+}
+
+// ---- Fiche détaillée ----
+// L'IA réécrit la recette en fiche complète (mêmes ingrédients et quantités,
+// donc mêmes calories). La fiche est rangée avec la recette : dans Mes repas
+// (synchronisé) et sur la recette affichée. Une recette détaillée depuis les
+// idées ou le plan rejoint Mes repas, pour ne pas perdre la fiche.
+var ficheLoading=false;
+
+async function detailRecipe(){
+  var r=getViewedRecipe();
+  if(!r||ficheLoading)return;
+  var src=recipeViewSrc;
+  ficheLoading=true;renderRecipeView();
+  try{
+    var resp=await fetch(SYNC_URL.replace(/\/store$/,'/fiche'),{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({recette:{nom:r.nom,temps:r.temps,kcal:r.kcal,prot:r.prot,gluc:r.gluc,lip:r.lip,ingredients:r.ingredients||r.ingredients_dispo||[],instructions:r.instructions||'',etapes:r.etapes||[]},regime:state.profil.regime||''})
+    });
+    var data=await resp.json().catch(function(){return {};});
+    if(!resp.ok||data.error)throw new Error(data.error||('Serveur '+resp.status));
+    r.fiche=data;
+    var saved=src.kind==='mes'?r:findSavedRecipe(r.nom);
+    if(saved)saved.fiche=data;
+    else toggleSavedRecipe(r); // la garde dans Mes repas, fiche comprise
+    saveState();
+    toast('Fiche prête','success');
+  }catch(e){
+    console.error(e);
+    toast(e.message&&e.message.indexOf('Serveur')!==0?e.message:'Erreur IA, réessayez');
+  }finally{
+    ficheLoading=false;
+    if(recipeViewSrc===src)renderRecipeView();
+  }
+}
+
+// Sur téléphone, la fenêtre d'impression propose « Enregistrer en PDF » ou le
+// partage du PDF ; la page imprimée ne montre que la fiche.
+function exportRecipePdf(){
+  var r=getViewedRecipe();
+  var title=document.title;
+  if(r)document.title=r.nom+' — CalTrack';
+  window.print();
+  setTimeout(function(){document.title=title;},1000);
 }
 
 // ---- Liste de courses ----
