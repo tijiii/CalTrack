@@ -89,6 +89,11 @@ select option{background:var(--surface2)}
 .meal-line:last-child{border-bottom:none}
 /* le message de confirmation ne doit pas bloquer les boutons du bas */
 .toast{pointer-events:none}
+.undo-bar{position:fixed;left:50%;bottom:1.5rem;transform:translate(-50%,20px);opacity:0;pointer-events:none;z-index:1000;display:flex;align-items:center;gap:1rem;background:var(--text);color:var(--bg);padding:.55rem .6rem .55rem 1rem;font-size:.9rem;transition:all .25s;max-width:calc(100% - 1.5rem)}
+.undo-bar.show{transform:translate(-50%,0);opacity:1;pointer-events:auto}
+.undo-bar button{background:none;border:1px solid var(--bg);color:var(--bg);font-family:var(--font-body);font-size:.9rem;padding:.35rem .8rem;cursor:pointer;min-height:36px}
+.editable{cursor:pointer}
+.editable:active{background:var(--surface2)}
 .delete-btn{background:none;border:none;color:var(--text3);cursor:pointer;padding:6px;border-radius:var(--r);font-size:1rem;min-width:32px;min-height:32px}
 .delete-btn:hover{color:var(--danger)}
 .day-tabs{display:flex;gap:4px;margin-bottom:1.5rem;flex-wrap:wrap}
@@ -177,6 +182,7 @@ select option{background:var(--surface2)}
   .bot-nav-item span:first-child{font-size:1.35rem}
   .bot-nav-item.active{color:var(--accent)}
   .toast{bottom:80px;right:.75rem;left:.75rem;text-align:center}
+  .undo-bar{bottom:80px}
   .stat-val{font-size:1.4rem}
   .card{padding:1rem}
   .mode-btn{font-size:.78rem;padding:.45rem .25rem}
@@ -198,9 +204,9 @@ select option{background:var(--surface2)}
 <main class="main">
 
 <div class="page active" id="page-dashboard">
-  <div class="page-header">
-    <h2 id="dash-title">Aujourd'hui</h2>
-    <p id="dash-date"></p>
+  <div class="page-header flex-between">
+    <div><h2 id="dash-title">Aujourd'hui</h2><p id="dash-date"></p></div>
+    <button class="btn btn-primary" onclick="addFromDashboard()">+ Ajouter</button>
   </div>
   <div class="stats-grid">
     <div class="stat-card"><div class="card-title">Calories</div><div class="stat-val" id="d-kcal" style="color:var(--accent)">0</div><div class="stat-label">/ <span id="d-kcal-goal">—</span> kcal</div><div class="progress-wrap mt1"><div class="progress-bar" id="d-kcal-bar" style="background:var(--accent)"></div></div></div>
@@ -568,6 +574,30 @@ select option{background:var(--surface2)}
   </div>
 </div>
 
+<!-- MODAL MODIFIER UNE LIGNE -->
+<div class="modal-bg" id="edit-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h3 id="edit-name">Modifier</h3>
+    <div class="form-row cols2">
+      <div class="form-group"><label id="edit-qty-label">Quantité (g)</label><input type="number" id="edit-qty" inputmode="decimal" oninput="updateEditPreview()"></div>
+      <div class="form-group"><label>Jour</label><select id="edit-day"><option>Lundi</option><option>Mardi</option><option>Mercredi</option><option>Jeudi</option><option>Vendredi</option><option>Samedi</option><option>Dimanche</option></select></div>
+    </div>
+    <div id="edit-portions" class="mt1" style="display:none;gap:6px">
+      <button class="btn btn-ghost" style="flex:1;min-height:36px" onclick="setEditPortion(0.5)">½</button>
+      <button class="btn btn-ghost" style="flex:1;min-height:36px" onclick="setEditPortion(1)">1</button>
+      <button class="btn btn-ghost" style="flex:1;min-height:36px" onclick="setEditPortion(1.5)">1 ½</button>
+      <button class="btn btn-ghost" style="flex:1;min-height:36px" onclick="setEditPortion(2)">2</button>
+    </div>
+    <div id="edit-preview" class="mt2" style="font-size:.9rem;color:var(--text2)"></div>
+    <div class="modal-footer" style="justify-content:space-between">
+      <button class="btn btn-danger" onclick="deleteEditEntry()">Retirer</button>
+      <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="closeEditEntry()">Annuler</button><button class="btn btn-primary" onclick="saveEditEntry()">Enregistrer</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="undo-bar" id="undo-bar"><span id="undo-msg"></span><button onclick="doUndo()">Annuler</button></div>
 <div class="toast" id="toast"></div>
 <div class="sync-status" id="sync-status"></div>
 
@@ -776,7 +806,7 @@ function renderDashboard(){
   var avg=dwd.length>0?DAYS.reduce(function(a,d){return a+getDayTotals(d).kcal;},0)/dwd.length:0;
   document.getElementById('week-avg-tag').textContent=Math.round(avg)+' kcal moy.';
   var foods=getDayData(dayFr);
-  document.getElementById('today-foods').innerHTML=foods.length===0?'<div class="empty-state"><div class="icon">🍽️</div>Aucun aliment</div>':foods.map(function(f){return '<div style="display:flex;justify-content:space-between;padding:.45rem 0;border-bottom:1px solid var(--border)"><div><div style="font-size:.85rem;font-weight:500">'+f.nom+'</div><div style="font-size:.72rem;color:var(--text2)">'+(f.displayQty||f.grams+'g')+'</div></div><div style="color:var(--accent);font-weight:500;font-size:.85rem">'+Math.round(f.kcal)+' kcal</div></div>';}).join('');
+  document.getElementById('today-foods').innerHTML=foods.length===0?'<div class="empty-state"><div class="icon">🍽️</div>Aucun aliment</div>':foods.map(function(f){return '<div class="editable" onclick="openEditEntry(\''+dayFr+'\',\''+f.id+'\')" style="display:flex;justify-content:space-between;padding:.45rem 0;border-bottom:1px solid var(--border)"><div><div style="font-size:.85rem;font-weight:500">'+esc(f.nom)+'</div><div style="font-size:.72rem;color:var(--text2)">'+esc(f.displayQty||f.grams+'g')+'</div></div><div style="color:var(--accent);font-weight:500;font-size:.85rem">'+Math.round(f.kcal)+' kcal</div></div>';}).join('');
   // Widget macro dashboard
   renderMacroWidget(tot, 'dash-macro-widget');
 }
@@ -809,7 +839,7 @@ function renderDayContent(){
 // Les aliments d'un même repas sont regroupés sous une ligne avec le nom du
 // repas et son total ; les autres restent des lignes simples.
 function journalRows(foods){
-  function foodRow(f,cls){return '<tr'+(cls?' class="'+cls+'"':'')+'><td style="font-weight:500">'+esc(f.nom)+'</td><td style="color:var(--text2)">'+esc(f.displayQty||f.grams+'g')+'</td><td style="color:var(--accent)">'+Math.round(f.kcal)+'</td><td style="color:var(--prot)">'+r1(f.prot)+'</td><td style="color:var(--gluc)">'+r1(f.gluc)+'</td><td style="color:var(--lip)">'+r1(f.lip)+'</td><td><button class="delete-btn" onclick="removeFood(\''+f.id+'\')">✕</button></td></tr>';}
+  function foodRow(f,cls){var edit=' class="editable" onclick="openEditEntry(\''+state.currentDay+'\',\''+f.id+'\')"';return '<tr'+(cls?' class="'+cls+'"':'')+'><td'+edit+' style="font-weight:500">'+esc(f.nom)+'</td><td'+edit+' style="color:var(--text2);text-decoration:underline dotted;text-underline-offset:3px">'+esc(f.displayQty||f.grams+'g')+'</td><td style="color:var(--accent)">'+Math.round(f.kcal)+'</td><td style="color:var(--prot)">'+r1(f.prot)+'</td><td style="color:var(--gluc)">'+r1(f.gluc)+'</td><td style="color:var(--lip)">'+r1(f.lip)+'</td><td><button class="delete-btn" onclick="removeFood(\''+f.id+'\')">✕</button></td></tr>';}
   var done={},html='';
   foods.forEach(function(f){
     if(!f.repasId){html+=foodRow(f);return;}
@@ -1053,11 +1083,34 @@ function updateModalCalc(){
 function removeFood(id){
   var day=state.currentDay;
   if(!state.journal[day])return;
-  state.journal[day]=state.journal[day].filter(function(f){return f.id!==id;});
+  var gone=state.journal[day].filter(function(f){return f.id===id;})[0];
+  removeEntries(day,function(f){return f.id===id;},(gone?gone.nom:'Aliment')+' retiré');
+}
+
+// Retire des lignes du journal et propose de les remettre pendant 6 s
+function removeEntries(day,match,msg){
+  var before=(state.journal[day]||[]).slice();
+  state.journal[day]=before.filter(function(f){return !match(f);});
   saveState();
-  renderJournal();
+  refreshJournalViews();
+  showUndo(msg,function(){state.journal[day]=before;saveState();refreshJournalViews();});
+}
+
+function refreshJournalViews(){
+  if(document.getElementById('page-journal').classList.contains('active'))renderJournal();
   renderDashboard();
 }
+
+var undoTimer=null,undoFn=null;
+function showUndo(msg,fn){
+  undoFn=fn;
+  document.getElementById('undo-msg').textContent=msg;
+  document.getElementById('undo-bar').classList.add('show');
+  clearTimeout(undoTimer);
+  undoTimer=setTimeout(hideUndo,6000);
+}
+function hideUndo(){document.getElementById('undo-bar').classList.remove('show');undoFn=null;}
+function doUndo(){var fn=undoFn;hideUndo();if(fn){fn();toast('Remis dans le journal','success');}}
 
 // « cuillère à soupe » → « cuillères à soupe », « patate douce » → « patates douces »
 function pluriel(u){
@@ -1083,7 +1136,9 @@ function buildFoodEntry(){
     displayQty=units+' '+(units>1?pluriel(selFood.unitName):selFood.unitName);
   }
   var ratio=grams/100;
-  return {id:Date.now()+''+Math.floor(Math.random()*1000),nom:selFood.nom,grams:Math.round(grams),displayQty:displayQty,kcal:selFood.kcal*ratio,prot:selFood.prot*ratio,gluc:selFood.gluc*ratio,fib:(selFood.fib||0)*ratio,lip:selFood.lip*ratio};
+  var entry={id:Date.now()+''+Math.floor(Math.random()*1000),nom:selFood.nom,grams:Math.round(grams),displayQty:displayQty,kcal:selFood.kcal*ratio,prot:selFood.prot*ratio,gluc:selFood.gluc*ratio,fib:(selFood.fib||0)*ratio,lip:selFood.lip*ratio};
+  if(qtyMode==='u'){entry.units=units;entry.unitG=selFood.unitG;entry.unitName=selFood.unitName;}
+  return entry;
 }
 
 function addFood(){
@@ -1181,10 +1236,100 @@ function saveMeal(){
 function removeMeal(repasId){
   var day=state.currentDay;
   if(!state.journal[day])return;
-  state.journal[day]=state.journal[day].filter(function(f){return f.repasId!==repasId;});
+  var first=state.journal[day].filter(function(f){return f.repasId===repasId;})[0];
+  removeEntries(day,function(f){return f.repasId===repasId;},(first&&first.repas||'Repas')+' retiré');
+}
+
+// ===================== MODIFIER UNE LIGNE DU JOURNAL =====================
+// Toucher une ligne permet de changer sa quantité (grammes, unités ou part
+// d'une recette) ou de la changer de jour ; les valeurs suivent la quantité.
+var editRef=null;
+
+function entryKind(f){
+  if(f.displayQty==='recette'||f.portion)return 'portion';
+  if(f.unitG&&f.unitName&&f.units)return 'units';
+  return f.grams>0?'grams':'portion';
+}
+
+function openEditEntry(day,id){
+  var f=(state.journal[day]||[]).filter(function(x){return x.id===id;})[0];
+  if(!f)return;
+  editRef={day:day,id:id};
+  var kind=entryKind(f);
+  document.getElementById('edit-name').textContent=f.nom;
+  document.getElementById('edit-day').value=day;
+  var lbl=document.getElementById('edit-qty-label'),inp=document.getElementById('edit-qty'),chips=document.getElementById('edit-portions');
+  if(kind==='portion'){
+    lbl.textContent='Part de la recette';
+    inp.value=f.portion||1;inp.step='0.25';
+    chips.style.display='flex';
+  }else if(kind==='units'){
+    lbl.textContent='Nombre ('+pluriel(f.unitName)+')';
+    inp.value=f.units;inp.step='0.5';
+    chips.style.display='none';
+  }else{
+    lbl.textContent='Quantité (g)';
+    inp.value=f.grams;inp.step='1';
+    chips.style.display='none';
+  }
+  updateEditPreview();
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function portionText(v){
+  var n={0.25:'¼',0.5:'½',0.75:'¾',1.5:'1 ½',2.5:'2 ½'}[v]||String(r1(v)).replace('.',',');
+  return n+(v>1?' recettes':' recette');
+}
+
+function setEditPortion(v){document.getElementById('edit-qty').value=v;updateEditPreview();}
+
+function editedValues(){
+  var f=(state.journal[editRef.day]||[]).filter(function(x){return x.id===editRef.id;})[0];
+  var v=parseFloat(String(document.getElementById('edit-qty').value).replace(',','.'));
+  if(!f||!(v>0))return null;
+  var kind=entryKind(f),old,upd={};
+  if(kind==='portion'){old=f.portion||1;upd.portion=v;upd.displayQty=portionText(v);}
+  else if(kind==='units'){old=f.units;upd.units=v;upd.grams=Math.round(v*f.unitG);upd.displayQty=v+' '+(v>1?pluriel(f.unitName):f.unitName);}
+  else{old=f.grams;upd.grams=Math.round(v);upd.displayQty=Math.round(v)+'g';}
+  var k=v/old;
+  ['kcal','prot','gluc','fib','lip'].forEach(function(m){upd[m]=(f[m]||0)*k;});
+  return {f:f,upd:upd};
+}
+
+function updateEditPreview(){
+  var e=editRef&&editedValues();
+  document.getElementById('edit-preview').textContent=e?Math.round(e.upd.kcal)+' kcal · P '+r1(e.upd.prot)+'g · G '+r1(e.upd.gluc)+'g · L '+r1(e.upd.lip)+'g':'';
+}
+
+function saveEditEntry(){
+  var e=editedValues();
+  if(!e){toast('Quantité invalide');return;}
+  Object.assign(e.f,e.upd);
+  var newDay=document.getElementById('edit-day').value;
+  if(newDay!==editRef.day){
+    state.journal[editRef.day]=state.journal[editRef.day].filter(function(x){return x!==e.f;});
+    if(!state.journal[newDay])state.journal[newDay]=[];
+    delete e.f.repasId;delete e.f.repas;
+    state.journal[newDay].push(e.f);
+  }
   saveState();
-  renderJournal();
-  renderDashboard();
+  closeEditEntry();
+  refreshJournalViews();
+  toast('Modifié','success');
+}
+
+function deleteEditEntry(){
+  var ref=editRef;closeEditEntry();
+  var gone=(state.journal[ref.day]||[]).filter(function(x){return x.id===ref.id;})[0];
+  removeEntries(ref.day,function(f){return f.id===ref.id;},(gone?gone.nom:'Aliment')+' retiré');
+}
+
+function closeEditEntry(){document.getElementById('edit-modal').classList.remove('open');editRef=null;}
+
+function addFromDashboard(){
+  state.currentDay=getTodayName();
+  showPage('journal');
+  openAddModal();
 }
 
 
@@ -2570,6 +2715,7 @@ function closeBarcodeScanner() {
 }
 
 document.getElementById('scan-modal').addEventListener('click', function(e) { if(e.target===this) closeBarcodeScanner(); });
+document.getElementById('edit-modal').addEventListener('click', function(e) { if(e.target===this) closeEditEntry(); });
 document.getElementById('custom-modal').addEventListener('click',function(e){if(e.target===this)closeCustomModal();});
 
 loadState();
