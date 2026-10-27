@@ -12,7 +12,9 @@ import * as z from 'zod/v4';
 
 const Ingredient = z.object({
   nom: z.string().describe('Nom simple de l\'ingrédient, ex : « blanc de poulet », « riz basmati ».'),
-  quantite: z.string().describe('Quantité pour ce repas, ex : « 150 g », « 2 », « 1 c. à soupe ».'),
+  quantite: z.string().describe('Quantité pour ce repas, telle qu\'on la pèse ou la compte, ex : « 120 g », « 2 », « 1 c. à soupe ».'),
+  pesee: z.enum(['cru', 'cuit', 'tel quel']).describe('État dans lequel on pèse la quantité. « cru » pour tout ce qui change de poids en cuisant (pâtes, riz, semoule, lentilles, viande, poisson, légumes cuits) : pesé avant cuisson. « cuit » seulement si l\'ingrédient est déjà cuit au départ (ex : reste de riz cuit). « tel quel » pour ce qui ne cuit pas ou se compte (huile, épices, yaourt, fromage blanc, oeufs, fruits).'),
+  equivalent: z.string().describe('Pour un ingrédient pesé cru qui change de poids en cuisant, son poids approximatif une fois cuit, ex : « ≈ 300 g une fois cuites ». Vide sinon.'),
 });
 
 const Repas = z.object({
@@ -20,7 +22,8 @@ const Repas = z.object({
   nom: z.string(),
   temps: z.string().describe('Temps de préparation, ex : « 20 min ».'),
   ingredients: z.array(Ingredient),
-  instructions: z.string().describe('Deux ou trois phrases courtes.'),
+  instructions: z.string().describe('Résumé du plat en une phrase.'),
+  etapes: z.array(z.string()).describe('Toutes les étapes de préparation dans l\'ordre, une action par étape, assez détaillées pour un débutant : quelle quantité utiliser, découpe, feu ou température, temps de cuisson et comment savoir que c\'est prêt.'),
   kcal: z.number(),
   prot: z.number().describe('Protéines en grammes.'),
   gluc: z.number().describe('Glucides en grammes.'),
@@ -53,6 +56,8 @@ Règles :
 - Respecte le temps de préparation maximum, les préférences et les aliments à éviter.
 - Cuisine simple et réaliste, ingrédients faciles à trouver en supermarché en France. Réutilise les mêmes ingrédients d'un jour à l'autre pour limiter les courses et le gaspillage, sans servir deux fois le même plat dans le plan.
 - Utilise en priorité ce que l'utilisateur a déjà en stock, et ne le mets pas dans la liste de courses.
+- Chaque quantité précise si elle se pèse crue ou cuite. Par défaut, pèse cru tout ce qui cuit (120 g de pâtes = 120 g de pâtes crues) et donne alors l'équivalent cuit.
+- Les étapes de préparation sont complètes et détaillées : quelqu'un qui n'a jamais fait le plat doit pouvoir le réussir sans rien chercher ailleurs.
 - Les valeurs nutritionnelles sont celles du repas entier, calculées à partir des quantités crues des ingrédients.`;
 
 export async function handlePlan(request, env, cors, json) {
@@ -91,13 +96,13 @@ ${String(body.stock || 'rien de particulier').slice(0, 1000)}
   try {
     const response = await client.beta.messages.parse({
       model: 'claude-opus-5-5',
-      max_tokens: 16000,
+      max_tokens: 32000,
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       output_config: { effort: 'medium', format: betaZodOutputFormat(Plan) },
       system: SYSTEM,
       messages: [{ role: 'user', content: texte }],
-    });
+    }, { timeout: 10 * 60 * 1000 }); // plan long avec étapes détaillées : au-delà de ~21k jetons le SDK exige un délai explicite
     if (response.stop_reason === 'refusal' || !response.parsed_output) {
       return json({ error: 'Impossible de préparer ce plan, réessaie.' }, 422, cors);
     }
