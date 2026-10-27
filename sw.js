@@ -1,4 +1,4 @@
-var CACHE = 'caltrack-v10';
+var CACHE = 'caltrack-v11';
 var ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', function(e) {

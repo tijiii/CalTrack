@@ -228,7 +228,7 @@ select option{background:var(--surface2)}
   <div class="page-header flex-between">
     <div><h2>Journal</h2><p>Suivez vos repas</p></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-ghost" onclick="openFavoritesModal()">⭐ Favoris</button>
+      <button class="btn btn-ghost" onclick="openMesRepas()">⭐ Mes repas</button>
       <button class="btn btn-ghost" onclick="openAIModal()">✨ IA</button>
       <button class="btn btn-primary" onclick="openAddModal()">+ Ajouter</button>
     </div>
@@ -238,7 +238,6 @@ select option{background:var(--surface2)}
     <div class="card">
       <div class="flex-between" style="margin-bottom:.75rem">
         <div class="card-title" style="margin:0">Aliments</div>
-        <button class="btn btn-ghost" id="save-meal-btn" onclick="saveMealAsFavorite()" style="font-size:.75rem;padding:.3rem .7rem;min-height:0;display:none">💾 Sauver ce repas</button>
       </div>
       <div id="journal-table-wrap"></div>
     </div>
@@ -250,11 +249,11 @@ select option{background:var(--surface2)}
 </div>
 
 <div class="page" id="page-recettes">
-  <div class="page-header"><h2>Recettes</h2><p>Idées du jour, plan de la semaine, tes recettes sauvegardées et la liste de courses</p></div>
+  <div class="page-header"><h2>Recettes</h2><p>Idées du jour, plan de la semaine, tes repas gardés et la liste de courses</p></div>
   <div class="mode-switch section-gap">
     <button class="mode-btn active" id="rec-tab-btn-idees" onclick="setRecTab('idees')">🍳 Idées</button>
     <button class="mode-btn" id="rec-tab-btn-plan" onclick="setRecTab('plan')">🗓 Plan</button>
-    <button class="mode-btn" id="rec-tab-btn-mes" onclick="setRecTab('mes')">⭐ Mes recettes</button>
+    <button class="mode-btn" id="rec-tab-btn-mes" onclick="setRecTab('mes')">⭐ Mes repas</button>
     <button class="mode-btn" id="rec-tab-btn-courses" onclick="setRecTab('courses')">🛒 Courses</button>
   </div>
   <div id="rec-tab-idees">
@@ -347,10 +346,7 @@ select option{background:var(--surface2)}
 </div>
 
 <div class="page" id="page-historique">
-  <div class="page-header flex-between">
-    <div><h2>Historique</h2><p>Semaines passées</p></div>
-    <button class="btn btn-ghost" onclick="archiveCurrentWeek()">📦 Archiver</button>
-  </div>
+  <div class="page-header"><h2>Historique</h2><p>Les semaines passées, rangées toutes seules chaque lundi</p></div>
   <div id="historique-content"></div>
 </div>
 
@@ -397,9 +393,9 @@ select option{background:var(--surface2)}
       <div class="form-group mt2"><label>Règles de ta diète <small style="color:var(--text3);font-weight:400">(utilisées pour les recettes et le plan)</small></label>
         <textarea id="p-regime" onchange="saveRegime()" placeholder="Ex : pauvre en matières grasses, pas de porc, peu de sucre…" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;font-family:var(--font-body);resize:none;height:64px;width:100%;outline:none"></textarea>
       </div>
-      <button class="btn btn-primary mt3" onclick="calculerProfil()" style="width:100%">Calculer</button>
+      <button class="btn btn-primary mt3" onclick="calculerProfil()" style="width:100%">Enregistrer</button>
     </div>
-    <div class="card"><div class="card-title">Résultats</div><div id="profil-results" class="mt1"><div class="empty-state"><div class="icon">🎯</div>Remplissez le formulaire</div></div></div>
+    <div class="card"><div class="card-title">Mes objectifs</div><div id="profil-results" class="mt1"><div class="empty-state"><div class="icon">🎯</div>Remplis le formulaire</div></div></div>
   </div>
 </div>
 
@@ -514,39 +510,7 @@ select option{background:var(--surface2)}
   </div>
 </div>
 
-<!-- MODAL ALIMENT PERSO -->
-<div class="modal-bg" id="custom-modal">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <h3>Aliment personnalisé</h3>
-    <div class="form-group mt2"><label>Nom</label><input type="text" id="ca-nom" placeholder="Mon aliment"></div>
-    <div class="form-row cols2 mt1">
-      <div class="form-group"><label>Kcal/100g</label><input type="number" id="ca-kcal" placeholder="350" inputmode="decimal"></div>
-      <div class="form-group"><label>Protéines (g)</label><input type="number" id="ca-prot" placeholder="12" inputmode="decimal"></div>
-      <div class="form-group"><label>Glucides (g)</label><input type="number" id="ca-gluc" placeholder="60" inputmode="decimal"></div>
-      <div class="form-group"><label>Fibres (g)</label><input type="number" id="ca-fib" placeholder="5" inputmode="decimal"></div>
-      <div class="form-group"><label>Lipides (g)</label><input type="number" id="ca-lip" placeholder="8" inputmode="decimal"></div>
-      <div class="form-group"><label>Poids/unité (g) <small style="color:var(--text3)">optionnel</small></label><input type="number" id="ca-unit-g" placeholder="ex: 60 pour 1 oeuf" inputmode="decimal"></div>
-      <div class="form-group"><label>Nom unité <small style="color:var(--text3)">optionnel</small></label><input type="text" id="ca-unit-name" placeholder="ex: oeuf, tranche…"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeCustomModal()">Annuler</button>
-      <button class="btn btn-primary" onclick="saveCustomFood()">Sauvegarder</button>
-    </div>
-  </div>
-</div>
 
-<!-- MODAL FAVORIS -->
-<div class="modal-bg" id="favorites-modal">
-  <div class="modal">
-    <div class="modal-handle"></div>
-    <h3>⭐ Repas favoris</h3>
-    <div id="favorites-list" class="mt1"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeFavoritesModal()">Fermer</button>
-    </div>
-  </div>
-</div>
 
 <!-- MODAL SCANNER -->
 <div class="modal-bg" id="scan-modal">
@@ -819,10 +783,6 @@ function setDay(d){state.currentDay=d;renderJournal();}
 function renderDayContent(){
   var foods=getDayData(state.currentDay);var tot=getDayTotals(state.currentDay);var g=state.profil;
   var goals=getMacroGoals();
-  var savBtn = document.getElementById('save-meal-btn');
-  if (savBtn) savBtn.style.display = foods.length > 0 ? '' : 'none';
-  var saveBtn = document.getElementById('save-meal-btn');
-  if (saveBtn) saveBtn.style.display = foods.length > 0 ? '' : 'none';
   document.getElementById('journal-table-wrap').innerHTML=foods.length===0?'<div class="empty-state"><div class="icon">🥗</div>Aucun aliment</div>':'<table class="journal-table"><thead><tr><th>Aliment</th><th>Qté</th><th>Kcal</th><th>P</th><th>G</th><th>L</th><th></th></tr></thead><tbody>'+journalRows(foods)+'<tr style="font-weight:600;background:var(--surface2)"><td colspan="2" style="color:var(--text2)">Total</td><td style="color:var(--accent)">'+Math.round(tot.kcal)+'</td><td style="color:var(--prot)">'+r1(tot.prot)+'</td><td style="color:var(--gluc)">'+r1(tot.gluc)+'</td><td style="color:var(--lip)">'+r1(tot.lip)+'</td><td></td></tr></tbody></table>';
   var diff=tot.kcal-goals.kcal;
   document.getElementById('day-bilan').innerHTML=
@@ -1433,8 +1393,13 @@ function toggleCustomMacros() {
   document.getElementById('custom-macros-wrap').style.display = s === 'custom' ? 'block' : 'none';
 }
 
+// Une stratégie choisie s'applique tout de suite (sauf « Personnalisé »,
+// qui attend les pourcentages)
 function onStrategieChange() {
   toggleCustomMacros();
+  var s = document.getElementById('p-strategie').value;
+  var ok = ['p-age','p-poids','p-taille'].every(function(id){ return parseFloat(document.getElementById(id).value) > 0; });
+  if (s !== 'custom' && ok) calculerProfil();
 }
 
 function saveRegime() {
@@ -1529,33 +1494,19 @@ function renderProfilResults() {
   var goals = getMacroGoals();
   var stratLabel = strategieLabel();
 
-  // Totaux du jour actuel pour le widget profil
-  var dn = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-  var dayFr = dn[new Date().getDay()];
-  var todayTotals = getDayTotals(dayFr);
-
   document.getElementById('profil-results').innerHTML =
-    '<div style="display:flex;flex-direction:column;gap:10px">'
-    +'<div class="stat-card" style="text-align:center"><div class="card-title">BMR</div><div class="stat-val" style="color:var(--gluc)">'+p.bmr+' <small style="font-size:1rem">kcal</small></div></div>'
-    +'<div class="stat-card" style="text-align:center"><div class="card-title">TDEE</div><div class="stat-val" style="color:var(--warn)">'+p.tdee+' <small style="font-size:1rem">kcal</small></div></div>'
-    +'<div class="stat-card" style="text-align:center;border-color:var(--accent)"><div class="card-title">Objectif · '+stratLabel+'</div><div class="stat-val" style="color:var(--accent)">'+p.kcalGoal+' <small style="font-size:1rem">kcal</small></div></div>'
-    +'<div class="stat-card"><div class="card-title">Objectifs macro</div>'
+    '<div class="stat-card" style="text-align:center;border-color:var(--accent)"><div class="card-title">Objectif · '+esc(stratLabel)+'</div><div class="stat-val" style="color:var(--accent)">'+p.kcalGoal+' <small style="font-size:1rem">kcal / jour</small></div>'
+    +(p.tdee?'<div class="stat-label mt1">Ta dépense estimée : '+p.tdee+' kcal / jour</div>':'')+'</div>'
     +'<div class="macros-row mt1">'
     +'<div class="macro-chip"><div class="val" style="color:var(--prot)">'+goals.prot+'g</div><div class="lbl">protéines</div></div>'
     +'<div class="macro-chip"><div class="val" style="color:var(--gluc)">'+goals.gluc+'g</div><div class="lbl">glucides</div></div>'
     +'<div class="macro-chip"><div class="val" style="color:var(--lip)">'+goals.lip+'g</div><div class="lbl">lipides</div></div>'
     +'<div class="macro-chip"><div class="val" style="color:var(--fib)">'+goals.fib+'g</div><div class="lbl">fibres</div></div>'
-    +'</div></div>'
-    +'<div class="stat-card"><div class="card-title">Aujourd\'hui</div><div id="profil-macro-widget" class="mt1"></div></div>'
     +'</div>';
 
-  renderMacroWidget(todayTotals, 'profil-macro-widget');
   renderObjectifResult();
 }
 
-function openCustomModal(){document.getElementById('custom-modal').classList.add('open');}
-function closeCustomModal(){document.getElementById('custom-modal').classList.remove('open');}
-function saveCustomFood(){var nom=document.getElementById('ca-nom').value.trim();if(!nom){toast('Entrez un nom');return;}var unitG=parseFloat(document.getElementById('ca-unit-g').value)||null;var unitName=document.getElementById('ca-unit-name').value.trim()||null;state.customFoods.push({nom:nom,cat:'Perso',kcal:parseFloat(document.getElementById('ca-kcal').value)||0,prot:parseFloat(document.getElementById('ca-prot').value)||0,gluc:parseFloat(document.getElementById('ca-gluc').value)||0,fib:parseFloat(document.getElementById('ca-fib').value)||0,lip:parseFloat(document.getElementById('ca-lip').value)||0,unitG:unitG,unitName:unitName});saveState();closeCustomModal();toast(nom+' ajouté !','success');}
 
 function getWeekKey(date){var d=new Date(date);d.setHours(0,0,0,0);d.setDate(d.getDate()+3-((d.getDay()+6)%7));var w1=new Date(d.getFullYear(),0,4);var wn=1+Math.round(((d-w1)/86400000-3+(w1.getDay()+6)%7)/7);return d.getFullYear()+'-W'+(wn<10?'0':'')+wn;}
 function getCurrentWeekKey(){return getWeekKey(new Date());}
@@ -1570,7 +1521,6 @@ function archiveJournal(key,auto){
   state.journal={};
 }
 function checkWeekRollover(){var cur=getCurrentWeekKey();if(state.currentWeekKey&&state.currentWeekKey!==cur){var hasData=DAYS.some(function(d){return getDayData(d).length>0;});if(hasData)archiveJournal(state.currentWeekKey,true);}state.currentWeekKey=cur;saveState();}
-function archiveCurrentWeek(){var key=getCurrentWeekKey();var hasData=DAYS.some(function(d){return getDayData(d).length>0;});if(!hasData){toast('Aucune donnée');return;}if(!confirm('Ranger la semaine dans l\'historique ? Le journal sera vidé.'))return;archiveJournal(key,false);state.currentDay=getTodayName();saveState();toast('Semaine archivée !','success');renderHistorique();renderDashboard();}
 function renderHistorique(){var el=document.getElementById('historique-content');var hist=state.historique||{};var keys=Object.keys(hist).sort().reverse();if(keys.length===0){el.innerHTML='<div class="empty-state" style="margin-top:3rem"><div class="icon">📅</div>Aucun historique<br><small>Les semaines passées apparaîtront ici.</small></div>';return;}el.innerHTML=keys.map(function(key){var week=hist[key];var journal=week.journal||{};var tot=DAYS.reduce(function(acc,d){var foods=journal[d]||[];foods.forEach(function(f){acc.kcal+=f.kcal;acc.prot+=f.prot;acc.gluc+=f.gluc;acc.lip+=f.lip;});return acc;},{kcal:0,prot:0,gluc:0,lip:0});var dwd=DAYS.filter(function(d){return(journal[d]||[]).length>0;}).length;var avg=dwd>0?Math.round(tot.kcal/dwd):0;var goal=state.profil.kcalGoal||2500;var diff=avg-goal;var dcol=diff>200?'var(--danger)':diff>0?'var(--warn)':'var(--fib)';return '<div class="card section-gap"><div class="flex-between" style="margin-bottom:1rem"><div><div style="font-family:var(--font-display);font-weight:600">'+(week.label||key)+'</div><div style="font-size:.75rem;color:var(--text3)">'+dwd+'/7 jours'+(week.auto?' · auto':'')+'</div></div><div style="text-align:right"><div style="font-family:var(--font-display);font-size:1.3rem;font-weight:700;color:var(--accent)">'+avg+' <small>kcal/j</small></div><div style="font-size:.72rem;color:'+dcol+'">'+(diff>0?'+':'')+Math.round(diff)+' kcal</div></div></div><div class="macros-row"><div class="macro-chip"><div class="val" style="color:var(--accent)">'+Math.round(tot.kcal)+'</div><div class="lbl">kcal</div></div><div class="macro-chip"><div class="val" style="color:var(--prot)">'+Math.round(tot.prot)+'g</div><div class="lbl">prot.</div></div><div class="macro-chip"><div class="val" style="color:var(--gluc)">'+Math.round(tot.gluc)+'g</div><div class="lbl">gluc.</div></div><div class="macro-chip"><div class="val" style="color:var(--lip)">'+Math.round(tot.lip)+'g</div><div class="lbl">lip.</div></div></div><div style="margin-top:.75rem;display:flex;justify-content:flex-end"><button class="btn btn-danger" onclick="deleteWeek(\''+key+'\')">Supprimer</button></div></div>';}).join('');}
 function deleteWeek(key){if(!confirm('Supprimer ?'))return;delete state.historique[key];saveState();renderHistorique();}
 
@@ -1601,8 +1551,10 @@ function renderIdeesTab(){
   if(cache&&cache.etapes&&cache.dateKey===todayDateKey()&&cache.day===state.currentDay&&cache.regime===regimeKey()){
     recSuggestions=cache.suggestions;
     renderRecipeResults();
-  }else if(!isListening){
-    analyzeRecipes();
+  }else if(!recSuggestions.avec_stock.length&&!recSuggestions.avec_courses.length){
+    document.getElementById('rec-results').innerHTML='<div class="empty-state"><div class="icon">🍳</div>Note ce que tu as sous la main (ou rien),<br>puis touche « Proposer des recettes ».</div>';
+  }else{
+    renderRecipeResults();
   }
 }
 
@@ -1857,7 +1809,7 @@ function toggleSavedRecipe(r){
   if(existing){
     state.savedRecipes=getSavedRecipes().filter(function(s){return s!==existing;});
     saveState();
-    toast('Retirée de Mes recettes');
+    toast('Retirée de Mes repas');
     return;
   }
   getSavedRecipes().unshift({
@@ -1870,7 +1822,7 @@ function toggleSavedRecipe(r){
     savedAt:Date.now()
   });
   saveState();
-  toast('Sauvegardée dans Mes recettes','success');
+  toast('Gardée dans Mes repas','success');
 }
 
 function saveSuggestedRecipe(section,idx){
@@ -1893,9 +1845,23 @@ function getSavedRecipe(id){return getSavedRecipes().filter(function(s){return s
 function renderSavedRecipes(){
   document.getElementById('saved-day').value=state.currentDay;
   var el=document.getElementById('saved-list');
-  var list=getSavedRecipes();
-  if(!list.length){el.innerHTML='<div class="empty-state"><div class="icon">⭐</div>Aucune recette sauvegardée<br><small>Touche « Sauvegarder » sur une idée ou un repas du plan.</small></div>';return;}
-  el.innerHTML=list.map(function(r){
+  var list=getSavedRecipes(),favs=getFavorites();
+  if(!list.length&&!favs.length){el.innerHTML='<div class="empty-state"><div class="icon">⭐</div>Rien de gardé pour l\'instant<br><small>Touche « Sauvegarder » sur une recette, ou compose un repas dans le journal.</small></div>';return;}
+  var html='';
+  if(favs.length){
+    html+='<div class="card-title" style="margin:.25rem 0 .6rem">Repas composés</div>';
+    html+=favs.map(function(fav){
+      var t=fav.aliments.reduce(function(a,f){return{kcal:a.kcal+f.kcal,prot:a.prot+f.prot};},{kcal:0,prot:0});
+      return '<div class="card section-gap">'
+        +'<div class="flex-between"><div style="font-weight:600;font-family:var(--font-display)">'+esc(fav.nom)+'</div><div style="color:var(--accent);font-weight:600;white-space:nowrap">'+Math.round(t.kcal)+' kcal</div></div>'
+        +'<div class="mt1" style="font-size:.82rem;color:var(--text2)">'+fav.aliments.map(function(a){return esc((a.displayQty||a.grams+'g')+' '+a.nom);}).join(' · ')+'</div>'
+        +'<div style="display:flex;gap:6px" class="mt2"><button class="btn btn-primary" style="flex:1" onclick="addFavoriteToJournal(\''+fav.id+'\')">+ Ajouter au journal</button>'
+        +'<button class="btn btn-ghost" style="color:var(--text3)" title="Retirer" onclick="deleteFavorite(\''+fav.id+'\')">✕</button></div>'
+        +'</div>';
+    }).join('');
+    if(list.length)html+='<div class="card-title" style="margin:1rem 0 .6rem">Recettes</div>';
+  }
+  el.innerHTML=html+list.map(function(r){
     return '<div class="card section-gap">'
       +'<div class="flex-between"><div style="font-weight:600;font-family:var(--font-display)">'+esc(r.nom)+(r.temps?' <span style="color:var(--text3);font-weight:400;font-size:.78rem">· ⏱ '+esc(r.temps)+'</span>':'')+'</div><div style="color:var(--accent);font-weight:600;white-space:nowrap">'+Math.round(r.kcal)+' kcal</div></div>'
       +(r.ingredients.length?'<div class="mt1" style="font-size:.82rem;color:var(--text2)">'+r.ingredients.map(ingText).join(', ')+'</div>':'')
@@ -1904,9 +1870,14 @@ function renderSavedRecipes(){
       +'<button class="btn btn-ghost mt2" style="width:100%" onclick="openRecipeView(\'mes\',\''+r.id+'\')">📖 Voir la recette en entier</button>'
       +'<button class="btn btn-primary" style="width:100%;margin-top:.5rem" onclick="addSavedToJournal(\''+r.id+'\')">+ Ajouter au journal</button>'
       +(r.ingredients.length?'<button class="btn btn-ghost" style="width:100%;margin-top:.5rem" onclick="addSavedToCourses(\''+r.id+'\')">🛒 Ajouter à la liste de courses</button>':'')
-      +'<button class="btn btn-ghost" style="width:100%;margin-top:.5rem;color:var(--text3)" onclick="removeSavedRecipe(\''+r.id+'\')">Retirer de mes recettes</button>'
+      +'<button class="btn btn-ghost" style="width:100%;margin-top:.5rem;color:var(--text3)" onclick="removeSavedRecipe(\''+r.id+'\')">Retirer de mes repas</button>'
       +'</div>';
   }).join('');
+}
+
+function openMesRepas(){
+  showPage('recettes');
+  setRecTab('mes');
 }
 
 function addSavedToJournal(id){
@@ -2377,6 +2348,7 @@ function setSyncStatus(st){
   var el=document.getElementById('sync-status');if(!el)return;
   var map={ok:['● Synchronisé','var(--fib)'],syncing:['↻ Synchro…','var(--text3)'],error:['⚠ Hors ligne','var(--danger)']};
   var m=map[st]||map.error;el.textContent=m[0];el.style.color=m[1];
+  el.style.display=st==='error'?'':'none';
 }
 
 function syncSnapshot(){return {state:state,favorites:getFavorites(),aiMemory:getAIMemory()};}
@@ -2502,70 +2474,10 @@ function saveFavorites(favs) {
   scheduleSync();
 }
 
-function saveMealAsFavorite() {
-  var foods = getDayData(state.currentDay);
-  if (foods.length === 0) { toast('Aucun aliment à sauvegarder'); return; }
-  var name = prompt('Nom de ce repas favori :', 'Petit déj du lundi');
-  if (!name) return;
-  var favs = getFavorites();
-  favs.unshift({
-    id: Date.now()+'',
-    nom: name,
-    aliments: foods.map(function(f) {
-      return { nom: f.nom, grams: f.grams, displayQty: f.displayQty, kcal: f.kcal, prot: f.prot, gluc: f.gluc, fib: f.fib||0, lip: f.lip };
-    }),
-    createdAt: new Date().toISOString()
-  });
-  saveFavorites(favs);
-  toast(name + ' sauvegardé !', 'success');
-}
-
-function openFavoritesModal() {
-  renderFavoritesList();
-  document.getElementById('favorites-modal').classList.add('open');
-  document.body.style.overflow = 'hidden';
-  document.body.style.position = 'fixed';
-  document.body.style.width = '100%';
-}
-function closeFavoritesModal() {
-  document.getElementById('favorites-modal').classList.remove('open');
-  document.body.style.overflow = '';
-  document.body.style.position = '';
-  document.body.style.width = '';
-}
-
-function renderFavoritesList() {
-  var favs = getFavorites();
-  var el = document.getElementById('favorites-list');
-  if (favs.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">⭐</div>Aucun repas favori<br><small>Sauvegardez un repas avec "💾 Sauver ce repas"</small></div>';
-    return;
-  }
-  el.innerHTML = favs.map(function(fav) {
-    var total = fav.aliments.reduce(function(a,f){return a+f.kcal;},0);
-    var totalProt = fav.aliments.reduce(function(a,f){return a+f.prot;},0);
-    return '<div class="card" style="margin-bottom:.75rem;padding:.85rem">'
-      +'<div class="flex-between" style="margin-bottom:.5rem">'
-      +'<div style="font-weight:600;font-size:.9rem">'+fav.nom+'</div>'
-      +'<div style="color:var(--accent);font-size:.85rem;font-weight:600">'+Math.round(total)+' kcal</div>'
-      +'</div>'
-      +'<div style="font-size:.75rem;color:var(--text2);margin-bottom:.6rem">'
-      +fav.aliments.map(function(a){return a.displayQty+' '+a.nom;}).join(' · ')
-      +'</div>'
-      +'<div style="font-size:.72rem;color:var(--text3);margin-bottom:.75rem">P:'+Math.round(totalProt)+'g</div>'
-      +'<div style="display:flex;gap:6px">'
-      +'<button class="btn btn-primary" style="flex:1;font-size:.8rem;padding:.4rem;min-height:0" onclick="applyFavorite(\''+fav.id+'\')">+ Ajouter</button>'
-      +'<button class="btn btn-danger" style="font-size:.8rem;padding:.4rem .7rem;min-height:0" onclick="deleteFavorite(\''+fav.id+'\')">✕</button>'
-      +'</div>'
-      +'</div>';
-  }).join('');
-}
-
-function applyFavorite(id) {
-  var favs = getFavorites();
-  var fav = favs.find(function(f){return f.id===id;});
+function addFavoriteToJournal(id) {
+  var fav = getFavorites().filter(function(f){return f.id===id;})[0];
   if (!fav) return;
-  var day = state.currentDay;
+  var day = document.getElementById('saved-day').value;
   var repasId = 'r' + Date.now();
   if (!state.journal[day]) state.journal[day] = [];
   fav.aliments.forEach(function(f) {
@@ -2576,21 +2488,20 @@ function applyFavorite(id) {
       repas: fav.nom, repasId: repasId
     });
   });
+  state.currentDay = day;
   saveState();
-  closeFavoritesModal();
-  toast(fav.nom + ' ajouté !', 'success');
-  renderJournal();
+  toast(fav.nom + ' ajouté à ' + day, 'success');
   renderDashboard();
 }
 
 function deleteFavorite(id) {
-  var favs = getFavorites().filter(function(f){return f.id!==id;});
-  saveFavorites(favs);
-  renderFavoritesList();
-  toast('Favori supprimé');
+  var before = getFavorites();
+  var fav = before.filter(function(f){return f.id===id;})[0];
+  saveFavorites(before.filter(function(f){return f.id!==id;}));
+  renderSavedRecipes();
+  showUndo((fav ? fav.nom : 'Repas') + ' retiré', function(){ saveFavorites(before); renderSavedRecipes(); });
 }
 
-document.getElementById('favorites-modal').addEventListener('click', function(e){if(e.target===this)closeFavoritesModal();});
 var scanStream = null;
 var scanInterval = null;
 var scannedFood = null;
@@ -2716,7 +2627,6 @@ function closeBarcodeScanner() {
 
 document.getElementById('scan-modal').addEventListener('click', function(e) { if(e.target===this) closeBarcodeScanner(); });
 document.getElementById('edit-modal').addEventListener('click', function(e) { if(e.target===this) closeEditEntry(); });
-document.getElementById('custom-modal').addEventListener('click',function(e){if(e.target===this)closeCustomModal();});
 
 loadState();
 checkWeekRollover();
