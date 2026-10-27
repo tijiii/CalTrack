@@ -430,7 +430,10 @@ select option{background:var(--surface2)}
       <button class="mode-btn" id="kind-meal-btn" onclick="setAddKind('repas')">Un repas</button>
     </div>
     <div id="meal-builder" style="display:none;margin-bottom:1rem">
-      <div class="form-group"><label>Nom du repas</label><input type="text" id="meal-name" placeholder="Petit déjeuner, déjeuner…" autocomplete="off"></div>
+      <div class="form-row cols2">
+        <div class="form-group"><label>Nom du repas</label><input type="text" id="meal-name" placeholder="Petit déjeuner, déjeuner…" autocomplete="off"></div>
+        <div class="form-group"><label>Jour</label><select id="meal-day"><option>Lundi</option><option>Mardi</option><option>Mercredi</option><option>Jeudi</option><option>Vendredi</option><option>Samedi</option><option>Dimanche</option></select></div>
+      </div>
       <div id="meal-items" class="mt1"></div>
       <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text2);margin-top:.5rem;cursor:pointer"><input type="checkbox" id="meal-keep" checked style="width:auto;min-height:0"> Garder ce repas dans mes favoris pour le refaire</label>
     </div>
@@ -461,7 +464,7 @@ select option{background:var(--surface2)}
       <div class="form-row cols2">
         <div class="form-group" id="qty-g-wrap"><label>Quantité (g)</label><input type="number" id="modal-grams" placeholder="100" oninput="updateModalCalc()" inputmode="decimal"></div>
         <div class="form-group" id="qty-u-wrap" style="display:none"><label id="unit-label">Nombre</label><input type="number" id="modal-units" placeholder="1" step="0.5" oninput="updateModalCalc()" inputmode="decimal"></div>
-        <div class="form-group"><label>Jour</label>
+        <div class="form-group" id="modal-day-wrap"><label>Jour</label>
           <select id="modal-day"><option>Lundi</option><option>Mardi</option><option>Mercredi</option><option>Jeudi</option><option>Vendredi</option><option>Samedi</option><option>Dimanche</option></select>
         </div>
       </div>
@@ -526,6 +529,10 @@ select option{background:var(--surface2)}
       <div style="position:absolute;inset:0;border:3px solid var(--accent);border-radius:var(--r);pointer-events:none;box-shadow:inset 0 0 0 2000px rgba(0,0,0,0.3)"></div>
       <div style="position:absolute;top:50%;left:10%;right:10%;height:2px;background:var(--accent);transform:translateY(-50%);opacity:0.8"></div>
     </div>
+    <div id="scan-manual" style="display:none;margin-bottom:1rem">
+      <input type="text" id="manual-barcode" placeholder="Code-barres (ex : 3017620422003)" inputmode="numeric" autocomplete="off" onkeydown="if(event.key==='Enter')lookupBarcode(this.value.trim())">
+      <button class="btn btn-primary mt1" style="width:100%" onclick="lookupBarcode(document.getElementById('manual-barcode').value.trim())">Rechercher</button>
+    </div>
     <div id="scan-status" style="text-align:center;color:var(--text2);font-size:.85rem;margin-bottom:1rem">Pointez vers le code-barres</div>
     <div id="scan-result" style="display:none" class="card mt1">
       <div id="scan-food-name" style="font-weight:600;margin-bottom:.5rem"></div>
@@ -549,11 +556,11 @@ function getTodayName(){var dn=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','V
 // unitName = nom de l'unité (ex: "oeuf", "tranche", "portion")
 var BASE_ALIMENTS=[
   // OEUFS & PREPARATIONS
-  {nom:"Oeuf entier cru",kcal:155,prot:13,gluc:1.1,fib:0,lip:11,cat:"Oeufs",unitG:55,unitName:"oeuf"},
-  {nom:"Oeufs brouilles",kcal:160,prot:11,gluc:1,fib:0,lip:12,cat:"Oeufs",unitG:55,unitName:"oeuf"},
-  {nom:"Oeufs au plat",kcal:185,prot:13,gluc:0.5,fib:0,lip:14.5,cat:"Oeufs",unitG:55,unitName:"oeuf"},
-  {nom:"Omelette nature",kcal:154,prot:10.6,gluc:0.5,fib:0,lip:12,cat:"Oeufs",unitG:55,unitName:"oeuf"},
-  {nom:"Oeuf dur",kcal:155,prot:13,gluc:1.1,fib:0,lip:11,cat:"Oeufs",unitG:50,unitName:"oeuf"},
+  {nom:"Oeuf entier cru",kcal:155,prot:13,gluc:1.1,fib:0,lip:11,cat:"Oeufs",unitG:55,unitName:"œuf"},
+  {nom:"Oeufs brouilles",kcal:160,prot:11,gluc:1,fib:0,lip:12,cat:"Oeufs",unitG:55,unitName:"œuf"},
+  {nom:"Oeufs au plat",kcal:185,prot:13,gluc:0.5,fib:0,lip:14.5,cat:"Oeufs",unitG:55,unitName:"œuf"},
+  {nom:"Omelette nature",kcal:154,prot:10.6,gluc:0.5,fib:0,lip:12,cat:"Oeufs",unitG:55,unitName:"œuf"},
+  {nom:"Oeuf dur",kcal:155,prot:13,gluc:1.1,fib:0,lip:11,cat:"Oeufs",unitG:50,unitName:"œuf"},
   {nom:"Blanc d'oeuf",kcal:52,prot:11,gluc:0.7,fib:0,lip:0.2,cat:"Oeufs",unitG:30,unitName:"blanc"},
   // VIANDES
   {nom:"Poulet blanc grille",kcal:165,prot:31,gluc:0,fib:0,lip:3.6,cat:"Viandes",unitG:150,unitName:"blanc"},
@@ -561,10 +568,10 @@ var BASE_ALIMENTS=[
   {nom:"Poulet cuisse rotie",kcal:205,prot:22,gluc:0,fib:0,lip:13,cat:"Viandes",unitG:130,unitName:"cuisse"},
   {nom:"Steak hache 5%",kcal:121,prot:21,gluc:0,fib:0,lip:4.3,cat:"Viandes",unitG:150,unitName:"steak"},
   {nom:"Steak hache 15%",kcal:218,prot:17,gluc:0,fib:0,lip:17,cat:"Viandes",unitG:150,unitName:"steak"},
-  {nom:"Entrecote boeuf",kcal:250,prot:20,gluc:0,fib:0,lip:18,cat:"Viandes",unitG:200,unitName:"entrecote"},
+  {nom:"Entrecote boeuf",kcal:250,prot:20,gluc:0,fib:0,lip:18,cat:"Viandes",unitG:200,unitName:"entrecôte"},
   {nom:"Dinde blanc",kcal:106,prot:24,gluc:0,fib:0,lip:1.3,cat:"Viandes"},
   {nom:"Porc filet",kcal:143,prot:22,gluc:0,fib:0,lip:6,cat:"Viandes"},
-  {nom:"Cotes d'agneau",kcal:294,prot:18,gluc:0,fib:0,lip:25,cat:"Viandes",unitG:120,unitName:"cote"},
+  {nom:"Cotes d'agneau",kcal:294,prot:18,gluc:0,fib:0,lip:25,cat:"Viandes",unitG:120,unitName:"côte"},
   {nom:"Jambon blanc",kcal:100,prot:17.5,gluc:0.5,fib:0,lip:3,cat:"Viandes",unitG:40,unitName:"tranche"},
   {nom:"Jambon sec",kcal:268,prot:26,gluc:0,fib:0,lip:18,cat:"Viandes",unitG:20,unitName:"tranche"},
   {nom:"Lardons",kcal:337,prot:15,gluc:0.5,fib:0,lip:30,cat:"Viandes"},
@@ -573,10 +580,10 @@ var BASE_ALIMENTS=[
   // POISSONS
   {nom:"Saumon grille",kcal:208,prot:22,gluc:0,fib:0,lip:13,cat:"Poissons",unitG:150,unitName:"filet"},
   {nom:"Saumon cru",kcal:206,prot:20,gluc:0,fib:0,lip:13,cat:"Poissons"},
-  {nom:"Thon naturel",kcal:95,prot:22,gluc:0,fib:0,lip:1,cat:"Poissons",unitG:140,unitName:"boite"},
+  {nom:"Thon naturel",kcal:95,prot:22,gluc:0,fib:0,lip:1,cat:"Poissons",unitG:140,unitName:"boîte"},
   {nom:"Cabillaud",kcal:82,prot:18,gluc:0,fib:0,lip:0.7,cat:"Poissons",unitG:150,unitName:"filet"},
   {nom:"Crevettes cuites",kcal:85,prot:18,gluc:0,fib:0,lip:1,cat:"Poissons"},
-  {nom:"Sardines boite",kcal:190,prot:20,gluc:0,fib:0,lip:12,cat:"Poissons",unitG:135,unitName:"boite"},
+  {nom:"Sardines boite",kcal:190,prot:20,gluc:0,fib:0,lip:12,cat:"Poissons",unitG:135,unitName:"boîte"},
   {nom:"Maquereau fume",kcal:250,prot:19,gluc:0,fib:0,lip:19,cat:"Poissons",unitG:125,unitName:"filet"},
   {nom:"Sole",kcal:88,prot:18,gluc:0,fib:0,lip:1.5,cat:"Poissons",unitG:150,unitName:"filet"},
   // LAITIERS
@@ -651,18 +658,18 @@ var BASE_ALIMENTS=[
   {nom:"Poire",kcal:57,prot:0.4,gluc:15.2,fib:3.1,lip:0.1,cat:"Fruits",unitG:160,unitName:"poire"},
   {nom:"Raisin",kcal:69,prot:0.6,gluc:18.1,fib:0.9,lip:0.2,cat:"Fruits",unitG:10,unitName:"grain"},
   {nom:"Ananas",kcal:50,prot:0.5,gluc:13,fib:1.4,lip:0.1,cat:"Fruits",unitG:80,unitName:"tranche"},
-  {nom:"Peche",kcal:39,prot:0.9,gluc:9.5,fib:1.5,lip:0.3,cat:"Fruits",unitG:130,unitName:"peche"},
+  {nom:"Peche",kcal:39,prot:0.9,gluc:9.5,fib:1.5,lip:0.3,cat:"Fruits",unitG:130,unitName:"pêche"},
   {nom:"Abricot",kcal:48,prot:1.4,gluc:11.1,fib:2,lip:0.4,cat:"Fruits",unitG:40,unitName:"abricot"},
   {nom:"Citron jus",kcal:29,prot:1.1,gluc:6.9,fib:2.8,lip:0.3,cat:"Fruits",unitG:30,unitName:"citron"},
   // GRAISSES & OLEAGINEUX
-  {nom:"Huile d'olive",kcal:884,prot:0,gluc:0,fib:0,lip:100,cat:"Graisses",unitG:10,unitName:"cuillere a soupe"},
-  {nom:"Huile de coco",kcal:862,prot:0,gluc:0,fib:0,lip:100,cat:"Graisses",unitG:10,unitName:"cuillere a soupe"},
+  {nom:"Huile d'olive",kcal:884,prot:0,gluc:0,fib:0,lip:100,cat:"Graisses",unitG:10,unitName:"cuillère à soupe"},
+  {nom:"Huile de coco",kcal:862,prot:0,gluc:0,fib:0,lip:100,cat:"Graisses",unitG:10,unitName:"cuillère à soupe"},
   {nom:"Amandes",kcal:576,prot:21,gluc:22,fib:12.5,lip:49.4,cat:"Oleagineux",unitG:10,unitName:"amande"},
   {nom:"Noix",kcal:654,prot:15.2,gluc:13.7,fib:6.7,lip:65.2,cat:"Oleagineux",unitG:10,unitName:"noix"},
   {nom:"Noix de cajou",kcal:553,prot:18.2,gluc:30.2,fib:3.3,lip:43.9,cat:"Oleagineux"},
   {nom:"Cacahuetes",kcal:567,prot:25.8,gluc:16.1,fib:8.5,lip:49.2,cat:"Oleagineux"},
-  {nom:"Beurre de cacahuete",kcal:588,prot:25,gluc:20,fib:6,lip:50,cat:"Oleagineux",unitG:15,unitName:"cuillere a soupe"},
-  {nom:"Beurre d'amande",kcal:614,prot:21,gluc:19,fib:10.3,lip:56,cat:"Oleagineux",unitG:15,unitName:"cuillere a soupe"},
+  {nom:"Beurre de cacahuete",kcal:588,prot:25,gluc:20,fib:6,lip:50,cat:"Oleagineux",unitG:15,unitName:"cuillère à soupe"},
+  {nom:"Beurre d'amande",kcal:614,prot:21,gluc:19,fib:10.3,lip:56,cat:"Oleagineux",unitG:15,unitName:"cuillère à soupe"},
   {nom:"Graines de chia",kcal:486,prot:17,gluc:42,fib:34,lip:31,cat:"Oleagineux"},
   {nom:"Graines de lin",kcal:534,prot:18,gluc:29,fib:27,lip:42,cat:"Oleagineux"},
   // PREPARATIONS & PLATS
@@ -672,22 +679,22 @@ var BASE_ALIMENTS=[
   {nom:"Sandwich jambon beurre",kcal:340,prot:14,gluc:42,fib:2,lip:12,cat:"Preparations",unitG:180,unitName:"sandwich"},
   {nom:"Pizza margherita",kcal:266,prot:11,gluc:33,fib:2.3,lip:10,cat:"Preparations",unitG:100,unitName:"part (100g)"},
   {nom:"Quiche lorraine",kcal:310,prot:9,gluc:18,fib:0.8,lip:23,cat:"Preparations",unitG:150,unitName:"part"},
-  {nom:"Crepe nature",kcal:210,prot:6,gluc:37,fib:1,lip:4,cat:"Preparations",unitG:60,unitName:"crepe"},
+  {nom:"Crepe nature",kcal:210,prot:6,gluc:37,fib:1,lip:4,cat:"Preparations",unitG:60,unitName:"crêpe"},
   {nom:"Pancake",kcal:230,prot:6,gluc:38,fib:1.2,lip:6,cat:"Preparations",unitG:50,unitName:"pancake"},
   // DIVERS & CONDIMENTS
-  {nom:"Chocolat noir 70%",kcal:598,prot:7.8,gluc:46,fib:10.9,lip:42.6,cat:"Divers",unitG:10,unitName:"carre"},
+  {nom:"Chocolat noir 70%",kcal:598,prot:7.8,gluc:46,fib:10.9,lip:42.6,cat:"Divers",unitG:10,unitName:"carré"},
   {nom:"Whey proteine",kcal:370,prot:80,gluc:6,fib:0,lip:5,cat:"Supplements",unitG:30,unitName:"dose"},
-  {nom:"Miel",kcal:304,prot:0.3,gluc:82.4,fib:0.2,lip:0,cat:"Divers",unitG:15,unitName:"cuillere a soupe"},
-  {nom:"Sucre",kcal:400,prot:0,gluc:100,fib:0,lip:0,cat:"Divers",unitG:5,unitName:"cuillere a cafe"},
-  {nom:"Ketchup",kcal:101,prot:1.3,gluc:25,fib:0.5,lip:0.1,cat:"Condiments",unitG:15,unitName:"cuillere a soupe"},
+  {nom:"Miel",kcal:304,prot:0.3,gluc:82.4,fib:0.2,lip:0,cat:"Divers",unitG:15,unitName:"cuillère à soupe"},
+  {nom:"Sucre",kcal:400,prot:0,gluc:100,fib:0,lip:0,cat:"Divers",unitG:5,unitName:"cuillère à café"},
+  {nom:"Ketchup",kcal:101,prot:1.3,gluc:25,fib:0.5,lip:0.1,cat:"Condiments",unitG:15,unitName:"cuillère à soupe"},
   {nom:"Sauce tomate",kcal:35,prot:1.5,gluc:7.5,fib:1.5,lip:0.2,cat:"Condiments"},
-  {nom:"Mayonnaise",kcal:680,prot:1.2,gluc:2.6,fib:0,lip:75,cat:"Condiments",unitG:15,unitName:"cuillere a soupe"},
-  {nom:"Moutarde",kcal:66,prot:4.4,gluc:5.8,fib:3.2,lip:3.3,cat:"Condiments",unitG:10,unitName:"cuillere a cafe"},
-  {nom:"Sauce soja",kcal:53,prot:8.1,gluc:4.9,fib:0.8,lip:0.1,cat:"Condiments",unitG:15,unitName:"cuillere a soupe"},
+  {nom:"Mayonnaise",kcal:680,prot:1.2,gluc:2.6,fib:0,lip:75,cat:"Condiments",unitG:15,unitName:"cuillère à soupe"},
+  {nom:"Moutarde",kcal:66,prot:4.4,gluc:5.8,fib:3.2,lip:3.3,cat:"Condiments",unitG:10,unitName:"cuillère à café"},
+  {nom:"Sauce soja",kcal:53,prot:8.1,gluc:4.9,fib:0.8,lip:0.1,cat:"Condiments",unitG:15,unitName:"cuillère à soupe"},
   {nom:"Vinaigre balsamique",kcal:88,prot:0.5,gluc:17.3,fib:0,lip:0,cat:"Condiments"},
-  {nom:"Humus",kcal:166,prot:7.9,gluc:14.3,fib:6,lip:9.6,cat:"Condiments",unitG:30,unitName:"cuillere a soupe"},
+  {nom:"Humus",kcal:166,prot:7.9,gluc:14.3,fib:6,lip:9.6,cat:"Condiments",unitG:30,unitName:"cuillère à soupe"},
   {nom:"Compote pomme sans sucre",kcal:44,prot:0.3,gluc:11,fib:1.5,lip:0.1,cat:"Divers",unitG:100,unitName:"pot"},
-  {nom:"Confiture",kcal:250,prot:0.5,gluc:62,fib:1,lip:0.1,cat:"Divers",unitG:15,unitName:"cuillere a soupe"},
+  {nom:"Confiture",kcal:250,prot:0.5,gluc:62,fib:1,lip:0.1,cat:"Divers",unitG:15,unitName:"cuillère à soupe"},
   // BOISSONS
   {nom:"Jus d'orange",kcal:45,prot:0.7,gluc:10.4,fib:0.2,lip:0.2,cat:"Boissons",unitG:200,unitName:"verre"},
   {nom:"Lait de soja",kcal:33,prot:3.3,gluc:2.6,fib:0.6,lip:1.8,cat:"Boissons",unitG:200,unitName:"verre"},
@@ -806,7 +813,8 @@ function setQtyMode(m){
 }
 
 function openAddModal(kind){
-  selFood=null;qtyMode='g';mealDraft=[];
+  selFood=null;mealDraft=[];
+  setQtyMode('g');
   document.getElementById('meal-name').value=defaultMealName();
   document.getElementById('meal-keep').checked=true;
   setAddKind(kind==='repas'?'repas':'aliment');
@@ -818,6 +826,7 @@ function openAddModal(kind){
   document.getElementById('modal-calc-preview').style.display='none';
   document.getElementById('qty-mode-wrap').style.display='none';
   document.getElementById('modal-day').value=state.currentDay;
+  document.getElementById('meal-day').value=state.currentDay;
   document.getElementById('add-modal').classList.add('open');
   renderMealDraft();
   renderRecents();
@@ -993,16 +1002,15 @@ function selectFoodObj(s){
   document.getElementById('selected-food-info').style.display='block';
   // Afficher les options de quantité
   document.getElementById('qty-mode-wrap').style.display='block';
-  // Si l'aliment a une unité définie, afficher l'option unités
+  // Chaque nouvel aliment repart en grammes ; l'option unités s'affiche s'il en a une
+  setQtyMode('g');
   if(f.unitG&&f.unitName){
     document.getElementById('mode-u-btn').textContent='🔢 '+f.unitName.charAt(0).toUpperCase()+f.unitName.slice(1);
-    document.getElementById('unit-label').textContent='Nombre de '+f.unitName+'s';
+    document.getElementById('unit-label').textContent='Nombre '+(/^[aeiouyhéœ]/i.test(f.unitName)?'d\'':'de ')+pluriel(f.unitName);
     document.getElementById('mode-u-btn').style.display='';
   } else {
     document.getElementById('mode-u-btn').style.display='none';
-    setQtyMode('g');
   }
-  updateModalCalc();
 }
 
 function updateModalCalc(){
@@ -1028,6 +1036,15 @@ function removeFood(id){
   renderDashboard();
 }
 
+// « cuillère à soupe » → « cuillères à soupe », « patate douce » → « patates douces »
+function pluriel(u){
+  var stop=false;
+  return String(u).split(' ').map(function(m){
+    if(stop||m.charAt(0)==='('||/^(de|à|a|d'.*)$/.test(m)){stop=true;return m;}
+    return /[sxz]$/.test(m)?m:m+'s';
+  }).join(' ');
+}
+
 // Calcule la ligne de journal pour l'aliment choisi et la quantité saisie.
 function buildFoodEntry(){
   if(!selFood){toast('Sélectionnez un aliment');return null;}
@@ -1040,7 +1057,7 @@ function buildFoodEntry(){
     var units=parseFloat(document.getElementById('modal-units').value);
     if(!units||units<=0){toast('Quantité invalide');return null;}
     grams=units*(selFood.unitG||100);
-    displayQty=units+' '+selFood.unitName+(units>1&&!selFood.unitName.endsWith('s')?'s':'');
+    displayQty=units+' '+(units>1?pluriel(selFood.unitName):selFood.unitName);
   }
   var ratio=grams/100;
   return {id:Date.now()+''+Math.floor(Math.random()*1000),nom:selFood.nom,grams:Math.round(grams),displayQty:displayQty,kcal:selFood.kcal*ratio,prot:selFood.prot*ratio,gluc:selFood.gluc*ratio,fib:(selFood.fib||0)*ratio,lip:selFood.lip*ratio};
@@ -1075,6 +1092,7 @@ function setAddKind(k){
   document.getElementById('kind-food-btn').className='mode-btn'+(k==='aliment'?' active':'');
   document.getElementById('kind-meal-btn').className='mode-btn'+(k==='repas'?' active':'');
   document.getElementById('meal-builder').style.display=k==='repas'?'block':'none';
+  document.getElementById('modal-day-wrap').style.display=k==='repas'?'none':'';
   document.getElementById('add-modal-title').textContent=k==='repas'?'Composer un repas':'Ajouter un aliment';
   renderMealDraft();
 }
@@ -1115,9 +1133,14 @@ function renderMealDraft(){
 }
 
 function saveMeal(){
+  // Un aliment choisi avec sa quantité mais pas encore ajouté rejoint le repas
+  if(selFood){
+    var g=parseFloat(document.getElementById(qtyMode==='g'?'modal-grams':'modal-units').value);
+    if(g>0){var pending=buildFoodEntry();if(pending){mealDraft.push(pending);addToRecents(selFood);}}
+  }
   if(!mealDraft.length){toast('Ajoutez au moins un aliment');return;}
   var nom=document.getElementById('meal-name').value.trim()||defaultMealName();
-  var day=document.getElementById('modal-day').value;
+  var day=document.getElementById('meal-day').value;
   var repasId='r'+Date.now();
   if(!state.journal[day])state.journal[day]=[];
   mealDraft.forEach(function(f){f.repas=nom;f.repasId=repasId;state.journal[day].push(f);});
@@ -1369,8 +1392,17 @@ function saveCustomFood(){var nom=document.getElementById('ca-nom').value.trim()
 function getWeekKey(date){var d=new Date(date);d.setHours(0,0,0,0);d.setDate(d.getDate()+3-((d.getDay()+6)%7));var w1=new Date(d.getFullYear(),0,4);var wn=1+Math.round(((d-w1)/86400000-3+(w1.getDay()+6)%7)/7);return d.getFullYear()+'-W'+(wn<10?'0':'')+wn;}
 function getCurrentWeekKey(){return getWeekKey(new Date());}
 function getWeekLabel(key){var parts=key.split('-W');var year=parseInt(parts[0]);var w=parseInt(parts[1]);var d=new Date(year,0,1+(w-1)*7);var day=d.getDay()||7;d.setDate(d.getDate()+1-day);var end=new Date(d);end.setDate(end.getDate()+6);var fmt=function(dt){return dt.toLocaleDateString('fr-FR',{day:'numeric',month:'short'});};return fmt(d)+' – '+fmt(end)+' '+year;}
-function checkWeekRollover(){var cur=getCurrentWeekKey();if(state.currentWeekKey&&state.currentWeekKey!==cur){var hasData=DAYS.some(function(d){return getDayData(d).length>0;});if(hasData){if(!state.historique)state.historique={};state.historique[state.currentWeekKey]={label:getWeekLabel(state.currentWeekKey),journal:JSON.parse(JSON.stringify(state.journal)),archivedAt:new Date().toISOString(),auto:true};state.journal={};}}state.currentWeekKey=cur;saveState();}
-function archiveCurrentWeek(){var key=getCurrentWeekKey();var hasData=DAYS.some(function(d){return getDayData(d).length>0;});if(!hasData){toast('Aucune donnée');return;}if(!state.historique)state.historique={};state.historique[key]={label:getWeekLabel(key),journal:JSON.parse(JSON.stringify(state.journal)),archivedAt:new Date().toISOString()};state.journal={};state.currentDay=DAYS[0];saveState();toast('Semaine archivée !','success');renderJournal();renderDashboard();}
+// Range le journal dans l'historique de la semaine « key ». Si la semaine y est
+// déjà (archivée à la main en cours de semaine), on ajoute au lieu d'écraser.
+function archiveJournal(key,auto){
+  if(!state.historique)state.historique={};
+  var prev=state.historique[key],journal=JSON.parse(JSON.stringify(state.journal));
+  if(prev&&prev.journal)DAYS.forEach(function(d){var old=prev.journal[d]||[];if(old.length)journal[d]=old.concat(journal[d]||[]);});
+  state.historique[key]={label:getWeekLabel(key),journal:journal,archivedAt:new Date().toISOString(),auto:!!auto&&(!prev||!!prev.auto)};
+  state.journal={};
+}
+function checkWeekRollover(){var cur=getCurrentWeekKey();if(state.currentWeekKey&&state.currentWeekKey!==cur){var hasData=DAYS.some(function(d){return getDayData(d).length>0;});if(hasData)archiveJournal(state.currentWeekKey,true);}state.currentWeekKey=cur;saveState();}
+function archiveCurrentWeek(){var key=getCurrentWeekKey();var hasData=DAYS.some(function(d){return getDayData(d).length>0;});if(!hasData){toast('Aucune donnée');return;}if(!confirm('Ranger la semaine dans l\'historique ? Le journal sera vidé.'))return;archiveJournal(key,false);state.currentDay=getTodayName();saveState();toast('Semaine archivée !','success');renderHistorique();renderDashboard();}
 function renderHistorique(){var el=document.getElementById('historique-content');var hist=state.historique||{};var keys=Object.keys(hist).sort().reverse();if(keys.length===0){el.innerHTML='<div class="empty-state" style="margin-top:3rem"><div class="icon">📅</div>Aucun historique<br><small>Les semaines passées apparaîtront ici.</small></div>';return;}el.innerHTML=keys.map(function(key){var week=hist[key];var journal=week.journal||{};var tot=DAYS.reduce(function(acc,d){var foods=journal[d]||[];foods.forEach(function(f){acc.kcal+=f.kcal;acc.prot+=f.prot;acc.gluc+=f.gluc;acc.lip+=f.lip;});return acc;},{kcal:0,prot:0,gluc:0,lip:0});var dwd=DAYS.filter(function(d){return(journal[d]||[]).length>0;}).length;var avg=dwd>0?Math.round(tot.kcal/dwd):0;var goal=state.profil.kcalGoal||2500;var diff=avg-goal;var dcol=diff>200?'var(--danger)':diff>0?'var(--warn)':'var(--fib)';return '<div class="card section-gap"><div class="flex-between" style="margin-bottom:1rem"><div><div style="font-family:var(--font-display);font-weight:600">'+(week.label||key)+'</div><div style="font-size:.75rem;color:var(--text3)">'+dwd+'/7 jours'+(week.auto?' · auto':'')+'</div></div><div style="text-align:right"><div style="font-family:var(--font-display);font-size:1.3rem;font-weight:700;color:var(--accent)">'+avg+' <small>kcal/j</small></div><div style="font-size:.72rem;color:'+dcol+'">'+(diff>0?'+':'')+Math.round(diff)+' kcal</div></div></div><div class="macros-row"><div class="macro-chip"><div class="val" style="color:var(--accent)">'+Math.round(tot.kcal)+'</div><div class="lbl">kcal</div></div><div class="macro-chip"><div class="val" style="color:var(--prot)">'+Math.round(tot.prot)+'g</div><div class="lbl">prot.</div></div><div class="macro-chip"><div class="val" style="color:var(--gluc)">'+Math.round(tot.gluc)+'g</div><div class="lbl">gluc.</div></div><div class="macro-chip"><div class="val" style="color:var(--lip)">'+Math.round(tot.lip)+'g</div><div class="lbl">lip.</div></div></div><div style="margin-top:.75rem;display:flex;justify-content:flex-end"><button class="btn btn-danger" onclick="deleteWeek(\''+key+'\')">Supprimer</button></div></div>';}).join('');}
 function deleteWeek(key){if(!confirm('Supprimer ?'))return;delete state.historique[key];saveState();renderHistorique();}
 
@@ -2001,7 +2033,7 @@ async function analyzeWithAI(){
 
 function updateAIFood(idx, field, val) {
   aiParsedFoods[idx][field] = parseFloat(val) || 0;
-  aiParsedFoods[idx]._modified = true; // Marquer comme modifié
+  if (field !== 'grams') aiParsedFoods[idx]._modified = true; // valeurs nutritionnelles corrigées
   var ratio = aiParsedFoods[idx].grams / 100;
   var el = document.getElementById('ai-total-'+idx);
   if (el) el.textContent = Math.round(aiParsedFoods[idx].kcal * ratio) + ' kcal';
@@ -2304,10 +2336,19 @@ function openBarcodeScanner() {
   document.getElementById('scan-modal').classList.add('open');
   document.getElementById('scan-result').style.display = 'none';
   document.getElementById('scan-add-btn').style.display = 'none';
+  document.getElementById('scan-area').style.display = '';
+  document.getElementById('scan-manual').style.display = 'none';
   document.getElementById('scan-status').textContent = 'Démarrage de la caméra…';
   document.body.style.overflow = 'hidden';
   document.body.style.position = 'fixed';
   document.body.style.width = '100%';
+
+  // Safari (iPhone) ne sait pas lire les codes-barres : inutile d'ouvrir la caméra
+  if (!('BarcodeDetector' in window) || !navigator.mediaDevices) {
+    document.getElementById('scan-status').textContent = 'Tape le numéro sous le code-barres';
+    showManualBarcodeInput();
+    return;
+  }
 
   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
     .then(function(stream) {
@@ -2325,7 +2366,9 @@ function openBarcodeScanner() {
 }
 
 function showManualBarcodeInput() {
-  document.getElementById('scan-area').innerHTML = '<input type="number" id="manual-barcode" placeholder="Code-barres EAN (ex: 3017620422003)" style="background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r);color:var(--text);padding:.75rem;font-size:16px;width:100%;outline:none;margin:1rem 0" inputmode="numeric"><button class="btn btn-primary" style="width:100%" onclick="lookupBarcode(document.getElementById(\'manual-barcode\').value)">Rechercher</button>';
+  document.getElementById('scan-area').style.display = 'none';
+  document.getElementById('scan-manual').style.display = '';
+  document.getElementById('manual-barcode').value = '';
 }
 
 function startBarcodeDetection(video) {
@@ -2391,15 +2434,18 @@ async function lookupBarcode(code) {
 
 function addScannedFood() {
   if (!scannedFood) return;
+  var fromModal = document.getElementById('add-modal').classList.contains('open');
   closeBarcodeScanner();
+  if (!fromModal) openAddModal();
+  else { document.body.style.overflow = 'hidden'; document.body.style.position = 'fixed'; document.body.style.width = '100%'; }
   selectFoodObj(JSON.stringify(scannedFood));
-  document.getElementById('add-modal').classList.add('open');
 }
 
 function closeBarcodeScanner() {
   if (scanStream) { scanStream.getTracks().forEach(function(t) { t.stop(); }); scanStream = null; }
   if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
   document.getElementById('scan-modal').classList.remove('open');
+  if (anyModalOpen()) return; // la fenêtre d'ajout reste ouverte derrière
   document.body.style.overflow = '';
   document.body.style.position = '';
   document.body.style.width = '';
