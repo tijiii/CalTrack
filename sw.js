@@ -1,4 +1,4 @@
-var CACHE = 'caltrack-v13';
+var CACHE = 'caltrack-v15';
 var ASSETS = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 // Au-delà, on sert la copie gardée : en avion (wifi de bord lent), la page
 // s'ouvre tout de suite au lieu d'attendre le réseau.
