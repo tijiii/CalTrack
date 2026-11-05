@@ -762,6 +762,25 @@ function getDayTotals(day){return getDayData(day).reduce(function(a,f){return{kc
 function pct(v,g){return g>0?Math.min(100,Math.round(v/g*100)):0;}
 function r1(n){return Math.round(n*10)/10;}
 
+// ===================== RÉSEAU =====================
+// En avion, le réseau est soit coupé (mode avion), soit très lent (wifi de
+// bord) : sans limite de temps, une requête peut attendre plus d'une minute.
+// netFetch échoue tout de suite hors ligne et abandonne après « ms ».
+function netFetch(url,opts,ms){
+  if(navigator.onLine===false){var off=new Error('hors ligne');off.code='offline';return Promise.reject(off);}
+  var ctrl=new AbortController(),o=Object.assign({},opts||{},{signal:ctrl.signal});
+  var timer=setTimeout(function(){ctrl.abort();},ms||15000);
+  return fetch(url,o).finally(function(){clearTimeout(timer);});
+}
+// Message clair pour une requête qui a échoué
+function netError(e,fallback){
+  if(e&&(e.code==='offline'||navigator.onLine===false))return 'Pas de connexion : ça marchera dès que tu auras du réseau.';
+  if(e&&e.name==='AbortError')return 'Le réseau est trop lent, réessaie un peu plus tard.';
+  if(e&&e.name==='TypeError')return 'Connexion impossible, réessaie un peu plus tard.';
+  if(e&&e.message&&e.message.indexOf('Serveur')!==0)return e.message;
+  return fallback||'Erreur IA, réessaie';
+}
+
 function toast(msg,type){var t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(type==='success'?' success':'');setTimeout(function(){t.className='toast';},2500);}
 
 function renderDashboard(){
@@ -908,8 +927,9 @@ function modalSearch(){
   var q=document.getElementById('modal-search').value.trim();
   if(q.length<2){document.getElementById('modal-results').style.display='none';return;}
   var local=searchLocal(q);
-  renderSearchResults(local,[],true);
   clearTimeout(searchTimer);if(searchAbort)searchAbort.abort();
+  if(navigator.onLine===false){renderSearchResults(local,[],false,true);return;}
+  renderSearchResults(local,[],true);
   searchTimer=setTimeout(function(){searchOFF(q);},400);
 }
 
@@ -940,6 +960,7 @@ function searchOFF(q){
   .catch(function(){
     clearTimeout(timeout);
     if(searchAbort!==ctrl)return; // une recherche plus récente a pris le relais
+    if(navigator.onLine===false){renderSearchResults(local,[],false,true);return;}
     searchOFFDirect(q,local);
   });
 }
@@ -970,7 +991,7 @@ function searchOFFDirect(q,local){
     clearTimeout(timeout);
     if(searchAbort!==ctrl)return;
     // En cas d'échec : montrer uniquement la base locale
-    renderSearchResults(local,[],false);
+    renderSearchResults(local,[],false,true);
   });
 }
 
@@ -982,7 +1003,7 @@ function searchLocal(q){
   return getAllFoods().filter(function(f){var n=normTxt(f.nom);return mots.every(function(m){return n.indexOf(m)>=0;});}).slice(0,5);
 }
 
-function renderSearchResults(local,off,loading){
+function renderSearchResults(local,off,loading,offline){
   var html='';
   if(local.length>0){
     html+='<div style="padding:3px 10px;font-size:.68rem;color:var(--text3);background:var(--surface2);text-transform:uppercase">Ma base</div>';
@@ -993,6 +1014,7 @@ function renderSearchResults(local,off,loading){
     html+='<div style="padding:3px 10px;font-size:.68rem;color:var(--text3);background:var(--surface2);text-transform:uppercase">🌍 Open Food Facts</div>';
     html+=off.map(function(f){var s=encodeURIComponent(JSON.stringify(f)).replace(/'/g,'%27');return '<div class="search-item" onclick="selectFoodObj(decodeURIComponent(\''+s+'\'))"><div><div>'+esc(f.nom)+'</div><div class="macros-tiny">'+(f.detail?esc(f.detail)+' · ':'')+'P:'+f.prot+'g G:'+f.gluc+'g L:'+f.lip+'g</div></div><div class="kcal">'+f.kcal+' kcal<br><small style="color:var(--text3)">/100g</small></div></div>';}).join('');
   }
+  else if(offline){html+='<div class="search-item" style="color:var(--text3)">Hors ligne : seulement ta base'+(local.length?'':' (rien trouvé)')+'. Les produits de marque reviendront avec le réseau.</div>';}
   else if(!loading&&local.length===0){html='<div class="search-item" style="color:var(--text3)">Aucun résultat — essayez un autre mot</div>';}
   var res=document.getElementById('modal-results');
   res.innerHTML=html;
@@ -1474,11 +1496,11 @@ async function adapterObjectif() {
   document.getElementById('p-objectif-loading').style.display = 'block';
   document.getElementById('p-objectif-btn').disabled = true;
   try {
-    var resp = await fetch(SYNC_URL.replace(/\/store$/, '/objectif'), {
+    var resp = await netFetch(SYNC_URL.replace(/\/store$/, '/objectif'), {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ objectif: texte, regime: state.profil.regime || '', profil: {sexe: sexe, age: age, poids: poids, taille: taille, tdee: Math.round(bmr*activite)} })
-    });
+    }, 60000);
     var data = await resp.json().catch(function(){ return {}; });
     if (!resp.ok || data.error) throw new Error(data.error || ('Serveur '+resp.status));
     state.profil = Object.assign({}, state.profil, {
@@ -1491,7 +1513,7 @@ async function adapterObjectif() {
     calculerProfil();
   } catch (e) {
     console.error(e);
-    toast(e.message && e.message.indexOf('Serveur') !== 0 ? e.message : 'Erreur IA, réessayez');
+    toast(netError(e));
   } finally {
     document.getElementById('p-objectif-loading').style.display = 'none';
     document.getElementById('p-objectif-btn').disabled = false;
@@ -1603,14 +1625,14 @@ async function analyzeRecipes(){
   document.getElementById('rec-btn').disabled=true;
 
   try{
-    var resp=await fetch(SYNC_URL.replace(/\/store$/,'/recettes'),{
+    var resp=await netFetch(SYNC_URL.replace(/\/store$/,'/recettes'),{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         ingredients:ingredients,prepTime:prepTime,budget:budget,strategie:strategieLabel(),
         repartition:getMacroSplit(),regime:state.profil.regime||''
       })
-    });
+    },60000);
     var data=await resp.json().catch(function(){return {};});
     if(!resp.ok||data.error)throw new Error(data.error||('Serveur '+resp.status));
     var tout=(data.avec_stock||[]).concat(data.avec_courses||[]);
@@ -1623,7 +1645,7 @@ async function analyzeRecipes(){
     renderRecipeResults();
   }catch(e){
     console.error(e);
-    toast(e.message&&e.message.indexOf('Serveur')!==0?e.message:'Erreur IA, réessayez');
+    toast(netError(e));
   }finally{
     document.getElementById('rec-loading').style.display='none';
     document.getElementById('rec-btn').disabled=false;
@@ -1734,7 +1756,7 @@ async function generatePlan(){
   document.getElementById('plan-results').innerHTML='';
   document.getElementById('plan-btn').disabled=true;
   try{
-    var resp=await fetch(SYNC_URL.replace(/\/store$/,'/plan'),{
+    var resp=await netFetch(SYNC_URL.replace(/\/store$/,'/plan'),{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -1744,7 +1766,7 @@ async function generatePlan(){
         strategie:strategieLabel(),
         regime:state.profil.regime||''
       })
-    });
+    },90000);
     var data=await resp.json().catch(function(){return {};});
     if(!resp.ok||data.error)throw new Error(data.error||('Serveur '+resp.status));
     var objectifs={};jours.forEach(function(j){objectifs[j.jour]=j;});
@@ -1755,7 +1777,7 @@ async function generatePlan(){
     toast('Plan prêt, liste de courses mise à jour','success');
   }catch(e){
     console.error(e);
-    toast(e.message&&e.message.indexOf('Serveur')!==0?e.message:'Erreur IA, réessayez');
+    toast(netError(e));
   }finally{
     document.getElementById('plan-loading').style.display='none';
     document.getElementById('plan-btn').disabled=false;
@@ -2080,11 +2102,11 @@ async function detailRecipe(){
   var src=recipeViewSrc;
   ficheLoading=true;renderRecipeView();
   try{
-    var resp=await fetch(SYNC_URL.replace(/\/store$/,'/fiche'),{
+    var resp=await netFetch(SYNC_URL.replace(/\/store$/,'/fiche'),{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({recette:{nom:r.nom,temps:r.temps,kcal:r.kcal,prot:r.prot,gluc:r.gluc,lip:r.lip,ingredients:r.ingredients||r.ingredients_dispo||[],instructions:r.instructions||'',etapes:r.etapes||[]},regime:state.profil.regime||''})
-    });
+    },90000);
     var data=await resp.json().catch(function(){return {};});
     if(!resp.ok||data.error)throw new Error(data.error||('Serveur '+resp.status));
     r.fiche=data;
@@ -2095,7 +2117,7 @@ async function detailRecipe(){
     toast('Fiche prête','success');
   }catch(e){
     console.error(e);
-    toast(e.message&&e.message.indexOf('Serveur')!==0?e.message:'Erreur IA, réessayez');
+    toast(netError(e));
   }finally{
     ficheLoading=false;
     if(recipeViewSrc===src)renderRecipeView();
@@ -2293,11 +2315,11 @@ async function analyzeWithAI(){
   document.getElementById('ai-btn').disabled=true;
 
   try {
-    var resp = await fetch('https://caltrack-ai.tg-gannjometrad.workers.dev/', {
+    var resp = await netFetch('https://caltrack-ai.tg-gannjometrad.workers.dev/', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ prompt: text, memory: getAIMemory() })
-    });
+    }, 45000);
     var respText = await resp.text();
     console.log('RESP:', respText);
     var data;
@@ -2364,7 +2386,7 @@ async function analyzeWithAI(){
   } catch(e) {
     document.getElementById('ai-loading').style.display='none';
     document.getElementById('ai-btn').disabled=false;
-    toast('Erreur IA, réessayez');
+    toast(netError(e));
     console.error(e);
   }
 }
@@ -2488,7 +2510,7 @@ function rerenderAfterSync(){
 }
 
 async function fetchRemote(){
-  var res=await fetch(SYNC_URL+'/db',{cache:'no-store'});
+  var res=await netFetch(SYNC_URL+'/db',{cache:'no-store'},10000);
   if(!res.ok)throw new Error('Serveur '+res.status);
   return res.json();
 }
@@ -2507,7 +2529,7 @@ async function pushSync(){
   syncPushing=(async function(){
     setSyncStatus('syncing');
     try{
-      var res=await fetch(SYNC_URL+'/db',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseRev:getSyncRev(),data:syncSnapshot()})});
+      var res=await netFetch(SYNC_URL+'/db',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseRev:getSyncRev(),data:syncSnapshot()})},20000);
       var body=await res.json().catch(function(){return {};});
       if(res.status===409){
         // Un autre appareil a écrit entre-temps : sa version gagne
@@ -2567,6 +2589,7 @@ async function initSync(){
   setInterval(function(){if(document.visibilityState==='visible')pullSync();},SYNC_POLL_INTERVAL);
   document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')pullSync();});
   window.addEventListener('online',pullSync);
+  window.addEventListener('offline',function(){setSyncStatus('error');});
 }
 
 // ===================== REPAS FAVORIS =====================
@@ -2669,9 +2692,11 @@ function startBarcodeDetection(video) {
 
 async function lookupBarcode(code) {
   if (!code) return;
+  var known = state.customFoods.filter(function(f) { return f.barcode === code; })[0];
+  if (known) { showScannedFood(known); return; }
   document.getElementById('scan-status').textContent = 'Recherche du produit…';
   try {
-    var resp = await fetch('https://world.openfoodfacts.org/api/v0/product/' + code + '.json?fields=product_name,brands,nutriments,serving_size');
+    var resp = await netFetch('https://world.openfoodfacts.org/api/v0/product/' + code + '.json?fields=product_name,brands,nutriments,serving_size', {}, 10000);
     var data = await resp.json();
     if (data.status === 1 && data.product && data.product.nutriments) {
       var p = data.product;
@@ -2693,21 +2718,26 @@ async function lookupBarcode(code) {
         saveState();
         toast(scannedFood.nom + ' sauvegardé !', 'success');
       }
-      document.getElementById('scan-food-name').textContent = scannedFood.nom;
-      document.getElementById('scan-food-macros').innerHTML =
-        '<span class="mdot" style="background:var(--accent-soft);color:var(--accent)">' + scannedFood.kcal + ' kcal</span>' +
-        '<span class="mdot p">P:' + scannedFood.prot + 'g</span>' +
-        '<span class="mdot g">G:' + scannedFood.gluc + 'g</span>' +
-        '<span class="mdot l">L:' + scannedFood.lip + 'g</span>';
-      document.getElementById('scan-result').style.display = 'block';
-      document.getElementById('scan-add-btn').style.display = '';
-      document.getElementById('scan-status').textContent = '✅ Produit trouvé !';
+      showScannedFood(scannedFood);
     } else {
       document.getElementById('scan-status').textContent = 'Produit non trouvé — essayez un autre code';
     }
   } catch(e) {
-    document.getElementById('scan-status').textContent = 'Erreur réseau, réessayez';
+    document.getElementById('scan-status').textContent = netError(e, 'Erreur réseau, réessayez');
   }
+}
+
+function showScannedFood(food) {
+  scannedFood = food;
+  document.getElementById('scan-food-name').textContent = scannedFood.nom;
+  document.getElementById('scan-food-macros').innerHTML =
+    '<span class="mdot" style="background:var(--accent-soft);color:var(--accent)">' + scannedFood.kcal + ' kcal</span>' +
+    '<span class="mdot p">P:' + scannedFood.prot + 'g</span>' +
+    '<span class="mdot g">G:' + scannedFood.gluc + 'g</span>' +
+    '<span class="mdot l">L:' + scannedFood.lip + 'g</span>';
+  document.getElementById('scan-result').style.display = 'block';
+  document.getElementById('scan-add-btn').style.display = '';
+  document.getElementById('scan-status').textContent = '✅ Produit trouvé !';
 }
 
 function addScannedFood() {
